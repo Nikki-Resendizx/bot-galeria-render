@@ -2,6 +2,7 @@
   "name": "bot-galeria",
   "version": "1.0.0",
   "main": "server.js",
+  "license": "MIT",
   "scripts": { "start": "node server.js" },
   "dependencies": {
     "telegraf": "^4.15.0",
