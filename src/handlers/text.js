@@ -9,7 +9,8 @@ const MAP = { r:'danger', g:'success', p:'primary', b:'primary', rojo:'danger', 
 function contarPremium(entities){ return (entities||[]).filter(e=>e.type==='custom_emoji').length; }
 
 function parseBoton(txt, entities){
-  // #g 💎:'custom_emoji' CANAL OFICIAL
+  // #g 💎 CANAL OFICIAL 
+-> Guarda: style: success (verde) + icon_custom_emoji_id: ID de 💎 + text: CANAL OFICIAL
   let color=''; let rest=txt.trim();
   let m=rest.match(/^#(r|g|b|p|rojo|verde|azul)\s+/i);
   if(m){
