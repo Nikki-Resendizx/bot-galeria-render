@@ -129,7 +129,7 @@ bot.on('photo',async(ctx)=>{
   if(!(await isAdmin(ctx))) return;
   let key=String(ctx.from.id); let st=esperando[key]; if(!st) return;
   let fileId=ctx.message.photo[ctx.message.photo.length-1].file_id;
-  if(st.startsWith('foto_modelo_')){ await setDoc(doc(db,"modelos",st.replace('foto_modelo_',''),{foto_file_id:fileId,foto:fileId},{merge:true}); clearCache(); delete esperando[key]; return ctx.reply("✅ Foto modelo TELEGRAM"); }
+  setDoc(doc(db,"modelos",st.replace('foto_modelo_','')),{foto_file_id...
   if(st==='foto_bienvenida'){ await setDoc(doc(db,"config","bot"),{bienvenida_media:fileId},{merge:true}); clearCache(); delete esperando[key]; return ctx.reply("✅ Bienvenida foto"); }
   if(st==='foto_galeria'){ await setDoc(doc(db,"config","bot"),{galeria_media:fileId},{merge:true}); clearCache(); delete esperando[key]; return ctx.reply("✅ Galeria foto"); }
 });
