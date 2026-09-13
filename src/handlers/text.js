@@ -4,7 +4,7 @@ const { db } = require('../firebase');
 const { clearCache, getConfig } = require('../cache');
 const { esperando } = require('./admin');
 
-const COLORES = { r:'🔴', g:'🟢', b:'🔵', p:'🔵', rojo:'🔴', verde:'🟢', azul:'🔵' };
+const MAP = { r:'danger', g:'success', p:'primary', b:'primary', rojo:'danger', verde:'success', azul:'primary' };
 
 function contarPremium(entities){ return (entities||[]).filter(e=>e.type==='custom_emoji').length; }
 
