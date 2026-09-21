@@ -15,35 +15,33 @@ bot.action('lista', async(ctx)=>{
   let snap = await getDocs(query(collection(db,"modelos"), orderBy("fecha","desc")));
   if(snap.empty){ await ctx.reply("⏳ Aún no hay modelos"); return; }
 
-  let keyboard=[]; let row=[];
-  let colores = ["primary","danger","success"]; // azul, rojo, verde - API 9.4
-  let colorIndex = 0;
+  // === SECUENCIA NUEVA QUE PEDISTE ===
+  // Cada fila: [ AZUL | ROJO ]
+  let keyboard=[];
+  let row=[];
+  let snapArray = [];
+  snap.forEach(d=> snapArray.push(d));
 
-  snap.forEach((d)=>{
+  snapArray.forEach((d, index)=>{
     let m = d.data();
-    let color = colores[colorIndex % colores.length];
+    let color = (index % 2 === 0)? "primary" : "danger"; // par=azul, impar=rojo
 
     let btn = {
       text: `${m.perfil}`,
       callback_data: `ver_${d.id}`,
       style: color
     };
-    // Si guardaste emoji premium en /admin
     if(c.galeria_emoji_premium){
       btn.icon_custom_emoji_id = c.galeria_emoji_premium;
     }
-
     row.push(btn);
     if(row.length===2){
       keyboard.push(row);
       row=[];
-      // Cada 2 botones cambia color: 2 azules, 2 rojos, 2 verdes...
-      if(keyboard.length % 1 === 0) colorIndex++;
     }
   });
   if(row.length>0) keyboard.push(row);
 
-  // BOTONES CON TU SINTAXIS #g 💎 CANAL OFICIAL
   let canalConf = c.botones?.galeria?.canal_oficial || {};
   let galeriaConf = c.botones?.galeria?.galeria_virtual || {};
 
@@ -67,12 +65,11 @@ bot.action('lista', async(ctx)=>{
     try{
       await ctx.replyWithPhoto(c.galeria_media, { caption:texto, caption_entities:entities, parse_mode:'HTML', reply_markup:{ inline_keyboard: keyboard } });
       return;
-    }catch(e){ console.log("Foto fail", e.message); }
+    }catch(e){ console.log(e.message); }
   }
   await ctx.reply(texto, { entities, parse_mode:'HTML', reply_markup:{ inline_keyboard: keyboard } });
 });
 
-// resto ver_ y voto igual que tenías
 bot.action(/ver_(.*)/, async(ctx)=>{
   await ctx.answerCbQuery().catch(()=>{});
   try{ await ctx.deleteMessage().catch(()=>{}); }catch(e){}
