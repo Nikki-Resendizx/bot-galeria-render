@@ -1,8 +1,6 @@
-// 13. PREMIUM DETECTOR V15 - LIMPIO, SIN SPAM
-module.exports = (bot) => {
-  bot.on('message', async (ctx, next) => {
-    // Solo contamos, no mandamos nada aquí
-    // El conteo y la réplica se hace en text.js
-    if (next) return next();
-  });
-};
+is_premium = getattr(user, "is_premium", False) or getattr(user, "premium", False)
+
+if is_premium:
+    # dejar pasar a galería
+else:
+    # bloquear
