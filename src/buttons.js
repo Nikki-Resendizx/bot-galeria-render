@@ -16,14 +16,24 @@ function normalizeStyle(style) {
 
 async function button(key, extra = {}) {
   const all = await getButtonConfig();
-  const c = Object.assign({}, DEFAULTS[key] || { text: key, style: 'primary' }, all[key] || {}, extra);
+  const section = extra.section ? String(extra.section) : '';
+  const cleanExtra = { ...extra };
+  delete cleanExtra.section;
+  const sectionConfig = section && all[section] && typeof all[section] === 'object' ? all[section] : {};
+  const c = Object.assign(
+    {},
+    DEFAULTS[key] || { text: key, style: 'primary' },
+    all[key] || {},
+    sectionConfig[key] || {},
+    cleanExtra
+  );
   const out = {
     text: c.text,
     style: normalizeStyle(c.style),
     ...(c.callback_data ? { callback_data: String(c.callback_data) } : {}),
     ...(c.url ? { url: String(c.url) } : {}),
     ...(c.web_app ? { web_app: c.web_app } : {}),
-    ...extra
+    ...cleanExtra
   };
   if (c.icon_custom_emoji_id) out.icon_custom_emoji_id = String(c.icon_custom_emoji_id);
   return out;
