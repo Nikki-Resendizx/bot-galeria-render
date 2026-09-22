@@ -1,6 +1,10 @@
+// src/config.js - FINAL v14
+require('dotenv').config();
+
 module.exports = {
-  WEBAPP_URL: "https://galeria-verifiedmodels.pages.dev",
-  CANAL_OFICIAL: "http://t.me/VerifiedModels_VIP",
+  BOT_TOKEN: process.env.BOT_TOKEN,
+  WEBAPP_URL: process.env.WEBAPP_URL || "https://galeria-verifiedmodels.pages.dev",
+  CANAL_OFICIAL: process.env.CANAL_OFICIAL || "http://t.me/VerifiedModels_VIP",
   ADMIN_IDS_ENV: (process.env.ADMIN_IDS||"").split(",").map(s=>s.trim()).filter(Boolean),
   DEFAULT_BOTONES: {
     bienvenida: {
