@@ -22,7 +22,7 @@ function registerStorageLink(bot) {
         return ctx.reply('❌ Este comando solo se puede usar dentro del grupo de almacenamiento.');
       }
 
-      const threadId = ctx.message && ctx.message.message_thread_id;
+      const threadId = ctx.message?.message_thread_id;
       if (!threadId) {
         return ctx.reply('❌ Este comando debe enviarse dentro de uno de los temas.');
       }
@@ -32,13 +32,10 @@ function registerStorageLink(bot) {
         return ctx.reply('❌ Solo un administrador puede vincular los temas.');
       }
 
-      // Telegram no expone al bot una API para consultar el nombre de un tema
-      // a partir de message_thread_id. Por eso pedimos indicar qué sección se
-      // está vinculando y evitamos depender de getForumTopic().
-      const raw = (ctx.message.text || '').trim().split(/\\s+/)[1]?.toLowerCase();
-      const key = raw && raw.replace(/^\//, '');
+      const parts = (ctx.message.text || '').trim().split(/\s+/);
+      const key = (parts[1] || '').toLowerCase();
 
-      if (!key || !STORAGE_TOPICS[key]) {
+      if (!STORAGE_TOPICS[key]) {
         return ctx.reply(
           '❌ Indica qué tema estás vinculando. Ejemplos:\n\n' +
           '/vincular bienvenida\n' +
@@ -64,7 +61,7 @@ function registerStorageLink(bot) {
       }, { merge: true });
 
       return ctx.reply(
-        `✅ ${label} vinculado correctamente.\\n\\n🆔 Topic ID: ${threadId}`
+        `✅ ${label} vinculado correctamente.\n\n🆔 Topic ID: ${threadId}`
       );
     } catch (error) {
       console.error('Error vinculando tema:', error);
