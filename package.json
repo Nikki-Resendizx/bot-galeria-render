@@ -1,23 +1,20 @@
 {
-  "name": "bot-galeria-render",
-  "version": "16.1.0",
-  "description": "Bot Galeria VerifiedModels - Nube Telegram sin Firebase - Premium con botones",
+  "name": "bot-galeria-verifiedmodels",
+  "version": "17.0.0",
+  "description": "Bot Telegram VerifiedModels con Supabase y Mini App",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"
   },
   "dependencies": {
-    "telegraf": "^4.15.0",
-    "express": "^4.18.2",
-    "axios": "^1.6.7",
+    "@supabase/supabase-js": "^2.57.4",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "telegraf": "^4.16.3"
   },
   "engines": {
-    "node": "18.x"
-  },
-  "keywords": ["telegram", "bot", "galeria", "verifiedmodels"],
-  "author": "VeneNik",
-  "license": "MIT"
+    "node": ">=20"
+  }
 }
