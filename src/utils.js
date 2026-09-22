@@ -1,35 +1,7 @@
-const { ADMIN_IDS_ENV } = require('./config');
-
-function isAdmin(userId) {
-  try {
-    if (!userId) return false;
-    // soporta que te pasen ctx o id directo
-    const id = typeof userId === 'object' ? (userId.from?.id || userId.fromId || userId.id) : userId;
-    if (!id) return false;
-    const strId = String(id).trim();
-    // Comparamos como string para evitar fallo de tipo
-    return ADMIN_IDS_ENV.map(s => String(s).trim()).includes(strId);
-  } catch(e){ 
-    console.log("Error isAdmin:", e.message);
-    return false; 
-  }
-}
-
-function replaceVars(text, ctx) {
-  if (!text) return "";
-  try {
-    const name = ctx.from?.first_name || "bebé";
-    const username = ctx.from?.username ? `@${ctx.from.username}` : name;
-    const fullName = ctx.from?.first_name ? `${ctx.from.first_name} ${ctx.from?.last_name||''}`.trim() : name;
-    return text
-      .replace(/{nombre}/g, name)
-      .replace(/{usuario}/g, username)
-      .replace(/{username}/g, username)
-      .replace(/{mencion}/g, name)
-      .replace(/{nombre_completo}/g, fullName);
-  } catch(e) {
-    return text;
-  }
-}
-
-module.exports = { isAdmin, replaceVars };
+const { getConfig }=require('./cache');
+function envAdmins(){return String(process.env.ADMIN_IDS||process.env.ADMIN_ID||'').split(',').map(x=>x.trim()).filter(Boolean);}
+async function isAdmin(id){const uid=String(typeof id==='object'?(id.from?.id||id.id||''):(id||''));if(envAdmins().includes(uid))return true;try{const c=await getConfig();return Array.isArray(c.admins)&&c.admins.map(String).includes(uid);}catch(e){return false;}}
+function escapeHtml(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function replaceVars(text,ctx,model){model=model||{};const f=ctx?.from||{},name=f.first_name||'bebé',username=f.username?'@'+f.username:name,full=[f.first_name,f.last_name].filter(Boolean).join(' ')||name,total=Number(model.votosBueno||0)+Number(model.votosMalo||0);const vars={mencion:f.id?'<a href="tg://user?id='+f.id+'">'+escapeHtml(name)+'</a>':escapeHtml(name),nombre:escapeHtml(name),usuario:escapeHtml(username),username:escapeHtml(username),nombre_completo:escapeHtml(full),perfil:escapeHtml(model.perfil||''),edad:escapeHtml(model.edad??''),nacionalidad:escapeHtml(model.nacionalidad||''),servicios:escapeHtml(model.servicios||''),descripcion:escapeHtml(model.descripcion||''),canal_free:escapeHtml(model.canal_free||''),votosBueno:Number(model.votosBueno||0),votosMalo:Number(model.votosMalo||0),total_votos:total,porcentaje_bueno:total?Math.round(Number(model.votosBueno||0)*100/total):0};return String(text||'').replace(/\{([a-zA-Z0-9_]+)\}/g,(_,k)=>Object.prototype.hasOwnProperty.call(vars,k)?vars[k]:'{'+k+'}');}
+function slugify(v){return String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)||('plantilla_'+Date.now());}
+module.exports={isAdmin,escapeHtml,replaceVars,slugify};
