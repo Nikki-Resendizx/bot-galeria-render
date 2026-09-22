@@ -522,6 +522,11 @@ module.exports = bot => {
           bienvenida_parse_mode: prepararTextoTelegram(converted.html, entities).parse_mode || null,
           ...(premiumIds.length ? { bienvenida_emoji_premium: premiumIds[0] } : {})
         });
+        try {
+          await publishTextToStorage(ctx.telegram, 'bienvenida', converted.html, { parse_mode: 'HTML' });
+        } catch (storageError) {
+          console.error('BIENVENIDA: Storage:', storageError.message || storageError);
+        }
         clearPending(ctx.from.id);
 
         return ctx.reply(
@@ -542,6 +547,11 @@ module.exports = bot => {
           galeria_parse_mode: prepararTextoTelegram(converted.html, entities).parse_mode || null,
           ...(premium?.custom_emoji_id ? { galeria_emoji_premium: String(premium.custom_emoji_id) } : {})
         });
+        try {
+          await publishTextToStorage(ctx.telegram, 'galeria', converted.html, { parse_mode: 'HTML' });
+        } catch (storageError) {
+          console.error('GALERIA: Storage:', storageError.message || storageError);
+        }
         clearPending(ctx.from.id);
         return ctx.reply('✅ Texto de galería actualizado.' + (premium ? '\n💎 Emoji Premium detectado automáticamente.' : ''));
       }
@@ -673,6 +683,17 @@ module.exports = bot => {
         const entity = (ctx.message.entities || []).find(e => e.type === 'custom_emoji');
         if (entity?.custom_emoji_id) data.icon_custom_emoji_id = String(entity.custom_emoji_id);
         await saveButtonConfig(key, data);
+        try {
+          await publishTextToStorage(
+            ctx.telegram,
+            'botones',
+            '🧩 BOTÓN ACTUALIZADO\nClave: ' + key + '\nEstilo: ' + style + '\nTexto: ' + label +
+              (data.icon_custom_emoji_id ? '\n💎 Emoji Premium: ' + data.icon_custom_emoji_id : ''),
+            {}
+          );
+        } catch (storageError) {
+          console.error('BOTONES: Storage:', storageError.message || storageError);
+        }
         clearPending(ctx.from.id);
         return ctx.reply('✅ Botón <code>' + escapeHtml(key) + '</code> actualizado.\n🎨 ' + style + '\n💎 ' + (data.icon_custom_emoji_id ? 'emoji premium detectado automáticamente' : 'sin emoji personalizado'), { parse_mode: 'HTML' });
       }
