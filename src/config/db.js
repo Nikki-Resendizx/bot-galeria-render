@@ -16,6 +16,7 @@ async function getConfig() {
 
 async function saveConfig(data) {
   await botDoc.set(data, { merge: true });
+  global.__verifiedmodelsConfigVersion = Date.now();
 }
 
 async function saveUser(id, info) {
@@ -125,11 +126,13 @@ async function saveButtonConfig(key, data) {
         [buttonKey]: Object.assign({}, data, { actualizado: new Date().toISOString() })
       }
     }, { merge: true });
+    global.__verifiedmodelsConfigVersion = Date.now();
     return;
   }
   await ref.set({
     [rawKey]: Object.assign({}, data, { actualizado: new Date().toISOString() })
   }, { merge: true });
+  global.__verifiedmodelsConfigVersion = Date.now();
 }
 
 async function deleteBotMedia(key) {
