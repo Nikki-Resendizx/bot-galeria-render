@@ -1,18 +1,17 @@
-// server.js - RAIZ - unico que usara Render
 require('dotenv').config();
-const { bot } = require('./src/bot');
 const express = require('express');
+const { bot } = require('./src/bot');
 
 const app = express();
-app.get('/', (req, res) => res.send('Bot Galeria Live v14'));
-app.get('/health', (req, res) => res.send('OK'));
+const PORT = process.env.PORT || 10000;
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Web server en ${PORT}`));
+app.get('/', (req,res)=> res.send('✅ Bot Galeria Live v14 - 🔵🔴'));
 
-bot.launch().then(() => {
-  console.log('✅ Bot iniciado - botones color + premium OK');
-}).catch(e => {
-  console.error(e);
-  process.exit(1);
+app.listen(PORT, async ()=>{
+  console.log(`Web server en ${PORT}`);
+  await bot.launch();
+  console.log('✅ Bot iniciado - botones 🔵🔴 + premium');
 });
+
+process.once('SIGINT', ()=> bot.stop('SIGINT'));
+process.once('SIGTERM', ()=> bot.stop('SIGTERM'));
