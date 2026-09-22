@@ -130,8 +130,8 @@ async function sendModelo(ctx, id) {
       style: 'primary'
     }],
     [
-      await button('bueno', { callback_data: 'voto_bueno:' + id }),
-      await button('malo', { callback_data: 'voto_malo:' + id })
+      await button('bueno', { section: 'plantilla', callback_data: 'voto_bueno:' + id }),
+      await button('malo', { section: 'plantilla', callback_data: 'voto_malo:' + id })
     ],
     [
       await urlButton('canal_free', model.canalFree || process.env.CANAL_FREE_URL || '', { style: 'primary' }),
