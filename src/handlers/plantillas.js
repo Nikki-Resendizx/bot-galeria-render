@@ -1,6 +1,6 @@
 const { isAdmin,slugify,escapeHtml }=require('../utils');
-const { saveConfig,getPlantillas,savePlantilla,deletePlantilla,getBotMedia,saveBotMedia,saveTemplateMedia,getModelo,saveModelBotMedia }=require('../config/db');
-const { publishPhotoToStorage }=require('../storage');
+const { saveConfig,getConfig,getPlantillas,savePlantilla,deletePlantilla,getBotMedia,saveBotMedia,saveTemplateMedia,getModelo,saveModelBotMedia }=require('../config/db');
+const { publishPhotoToStorage, publishTextToStorage }=require('../storage');
 
 module.exports=bot=>{
   bot.command('bienvenida',async ctx=>{
@@ -16,8 +16,34 @@ module.exports=bot=>{
     const a=ctx.message.text.replace(/^\/plantilla\s*/,'').split('|');
     if(a.length<2)return ctx.reply('Uso: /plantilla nombre | texto con {perfil} {edad} {votosBueno}');
     const nombre=a.shift().trim(),texto=a.join('|').trim(),id=slugify(nombre);
-    await savePlantilla(id,{nombre,texto});
+    const entities=ctx.message.entities||[];
+    const { textoConPremiumToHtml }=require('../utils');
+    const converted=textoConPremiumToHtml(texto,entities);
+    await savePlantilla(id,{nombre,texto:converted.html,entities,parse_mode:'HTML'});
+    try{await publishTextToStorage(ctx.telegram,'plantillas','📝 PLANTILLA\nID: '+id+'\nNombre: '+nombre+'\n\n'+converted.html,{parse_mode:'HTML'});}catch(e){console.error('PLANTILLA: Storage:',e.message||e);}
     return ctx.reply('✅ Plantilla '+escapeHtml(nombre)+' guardada. ID: '+id,{parse_mode:'HTML'});
+  });
+
+  // Selecciona la plantilla activa del perfil del bot.
+  // Uso: /plantilla_usar ID
+  bot.command('plantilla_usar',async ctx=>{
+    if(!await isAdmin(ctx.from.id))return;
+    const id=ctx.message.text.replace(/^\\/plantilla_usar\\s*/i,'').trim();
+    if(!id)return ctx.reply('Uso: /plantilla_usar ID');
+    const p=await getPlantillas();
+    if(!p[id])return ctx.reply('❌ Plantilla inexistente. Usa /plantillas para ver los IDs.');
+    await saveConfig({plantilla_activa:id,plantilla_texto:p[id].texto||''});
+    try{
+      await publishTextToStorage(ctx.telegram,'plantillas',
+        '🔄 PLANTILLA ACTIVA\nID: '+id+'\nNombre: '+String(p[id].nombre||id),{});
+    }catch(e){console.error('PLANTILLA_USAR: Storage:',e.message||e);}
+    return ctx.reply('✅ Plantilla activa: <b>'+escapeHtml(p[id].nombre||id)+'</b>\n🆔 <code>'+escapeHtml(id)+'</code>',{parse_mode:'HTML'});
+  });
+
+  bot.command('plantilla_actual',async ctx=>{
+    if(!await isAdmin(ctx.from.id))return;
+    const c=await getConfig(), id=c.plantilla_activa;
+    return ctx.reply('📝 Plantilla activa: <code>'+escapeHtml(id||'predeterminada')+'</code>',{parse_mode:'HTML'});
   });
 
   bot.command('delplantilla',async ctx=>{
