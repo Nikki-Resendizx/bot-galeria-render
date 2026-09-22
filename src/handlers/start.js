@@ -1,6 +1,6 @@
 const { Markup } = require('telegraf');
 const { saveUser, getConfig, getBotMedia } = require('../config/db');
-const { replaceVars, textoConPremiumToHtml } = require('../utils');
+const { replaceVars } = require('../utils');
 const { webAppButton, urlButton, button } = require('../buttons');
 
 module.exports = bot => bot.start(async ctx => {
