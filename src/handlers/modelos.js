@@ -1,32 +1,3 @@
-const axios = require('axios');
-
-module.exports = (bot) => {
-  bot.command('modelos', async (ctx) => {
-    try{
-      const WEBAPP = process.env.WEBAPP_URL;
-      const res = await axios.get(`${WEBAPP}/api/modelos?t=${Date.now()}`);
-      const modelos = res.data;
-
-      if(!modelos || modelos.length === 0){
-        return ctx.reply("😔 Aún no hay modelos cargadas, mi reina. Ve al panel admin de la web.");
-      }
-
-      for(const m of modelos){
-        const caption = `👸🏻 <b>${m.nombre}</b>\n\n${m.descripcion || ''}\n\n⭐ ${m.promedio || 0} (${m.totalVotos || 0} votos)\n\n🔗 <a href="${WEBAPP}/modelo/${m.id}">Ver más y votar</a>`;
-        try{
-          if(m.foto){
-            await ctx.replyWithPhoto(m.foto, { caption, parse_mode:'HTML' });
-          }else{
-            await ctx.reply(caption, { parse_mode:'HTML' });
-          }
-        }catch(e){
-          await ctx.reply(caption, { parse_mode:'HTML' });
-        }
-        await new Promise(r=>setTimeout(r,800));
-      }
-    }catch(e){
-      console.log("Error modelos:", e.message);
-      ctx.reply("⚠️ Error cargando modelos. Intenta más tarde.");
-    }
-  });
-};
+const { getModelos }=require('../config/db');const { escapeHtml }=require('../utils');
+async function send(ctx){const list=await getModelos();if(!list.length)return ctx.reply('😔 Aún no hay modelos disponibles.');for(const m of list){const total=Number(m.votosBueno||0)+Number(m.votosMalo||0),c=['👸🏻 <b>'+escapeHtml(m.perfil||m.username||'Modelo')+'</b>','',m.descripcion?escapeHtml(m.descripcion):'','🎂 '+escapeHtml(m.edad??'')+'  🌎 '+escapeHtml(m.nacionalidad||''),'💎 '+escapeHtml(m.servicios||''),'👍 '+Number(m.votosBueno||0)+'  👎 '+Number(m.votosMalo||0)+'  • '+total+' votos'].filter(Boolean).join('\n');try{if(m.foto&&/^https?:\/\//i.test(String(m.foto)))await ctx.replyWithPhoto(m.foto,{caption:c,parse_mode:'HTML'});else await ctx.reply(c,{parse_mode:'HTML'});}catch(e){await ctx.reply(c,{parse_mode:'HTML'});}}}
+module.exports=bot=>{bot.command('modelos',send);bot.action('public_modelos',async ctx=>{await ctx.answerCbQuery();await send(ctx);});};
