@@ -8,10 +8,12 @@ const { db } = require('../config/db');
 
 const STORAGE_TOPICS = {
   bienvenida: '👋 BIENVENIDA',
-  galeria: '🖼️ GALERÍA',
-  modelos: '💃 MODELOS',
   plantillas: '📝 PLANTILLAS',
-  botones: '🔘 BOTONES',
+  galeria: '🖼️ GALERÍA',
+  botones: '🧩 BOTONES',
+  admins: '👑 ADMINS',
+  usuarios: '👥 USUARIOS',
+  modelos: '💃 MODELOS',
   otros: '📦 OTROS'
 };
 
@@ -43,6 +45,9 @@ function registerStorageLink(bot) {
           '/vincular modelos\n' +
           '/vincular plantillas\n' +
           '/vincular botones\n' +
+          '/vincular admins\n' +
+          '/vincular usuarios\n' +
+          '/vincular modelos\n' +
           '/vincular otros'
         );
       }
