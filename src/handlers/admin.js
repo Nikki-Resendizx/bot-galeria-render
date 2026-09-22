@@ -69,11 +69,11 @@ function sectionKeyboard(section) {
   const rows = [];
   if (section === 'bienvenida') {
     rows.push([b('📝 Cambiar texto', 'adm_welcome_text'), b('📸 Cambiar foto', 'adm_welcome_photo')]);
-    rows.push([b('👁️ Vista previa', 'adm_welcome_preview')]);
+    rows.push([b('💎 Emoji Premium', 'adm_welcome_emoji'), b('👁️ Vista previa', 'adm_welcome_preview')]);
   }
   if (section === 'galeria') {
-    rows.push([b('📸 Cambiar foto', 'adm_gallery_photo')]);
-    rows.push([b('🌐 Ver WebApp URL', 'adm_gallery_url')]);
+    rows.push([b('📸 Cambiar foto', 'adm_gallery_photo'), b('📝 Cambiar texto', 'adm_gallery_text')]);
+    rows.push([b('💎 Emoji Premium', 'adm_gallery_emoji'), b('🌐 Ver WebApp URL', 'adm_gallery_url')]);
   }
   if (section === 'plantillas') {
     rows.push([b('➕ Crear', 'adm_template_create'), b('📋 Lista', 'adm_template_list')]);
@@ -183,7 +183,12 @@ module.exports = bot => {
 
     if (a === 'adm_welcome_text') {
       return promptText(ctx, ctx.from.id, 'welcome_text',
-        '📝 <b>Nuevo texto de bienvenida</b>\n\nPuedes usar {mencion}, {nombre}, {usuario}, {username}, {nombre_completo}.');
+        '📝 <b>Nuevo texto de bienvenida</b>\n\nPuedes usar {mencion}, {nombre}, {usuario}, {username}, {nombre_completo}.\n💎 Los emojis Premium reales se detectan automáticamente.');
+    }
+
+    if (a === 'adm_welcome_emoji') {
+      return promptText(ctx, ctx.from.id, 'welcome_emoji',
+        '💎 <b>Emoji Premium de bienvenida</b>\n\nManda ahora el emoji Premium real. Telegram enviará automáticamente su <code>custom_emoji_id</code>.');
     }
 
     if (a === 'adm_welcome_photo') {
@@ -207,6 +212,16 @@ module.exports = bot => {
     if (a === 'adm_gallery_photo') {
       setPending(ctx.from.id, 'gallery_photo');
       return ctx.reply('📸 Envía ahora la foto con caption <code>/galeria</code>. Se publicará en el tema 🖼️ GALERÍA.', { parse_mode: 'HTML' });
+    }
+
+    if (a === 'adm_gallery_text') {
+      return promptText(ctx, ctx.from.id, 'gallery_text',
+        '📝 <b>Nuevo texto de galería</b>\n\nPuedes usar {mencion}, {perfil}, {edad}, {nacionalidad}, {servicios_lista}, {votos}, {votosBueno}, {votosMalo}, {porcentajeBueno}, {porcentajeMalo}, {canalFree}, {contacto}.');
+    }
+
+    if (a === 'adm_gallery_emoji') {
+      return promptText(ctx, ctx.from.id, 'gallery_emoji',
+        '💎 <b>Emoji Premium de galería</b>\n\nManda ahora el emoji Premium real. Se guardará automáticamente.');
     }
 
     if (a === 'adm_gallery_url') {
@@ -354,7 +369,7 @@ module.exports = bot => {
   });
 
 
-  bot.on(['photo', 'document'], async ctx => {
+  bot.on(['photo', 'document'], async (ctx, next) => {
     if (!await isAdmin(ctx.from.id)) return;
 
     const action = getPending(ctx.from.id);
@@ -371,7 +386,7 @@ module.exports = bot => {
         ? 'galeria'
         : null;
 
-    if (!key) return;
+    if (!key) return next();
 
     const fileId = ctx.message.photo?.at(-1)?.file_id || ctx.message.document?.file_id;
     if (!fileId) return ctx.reply('❌ No pude obtener el file_id de la fotografía o documento.');
@@ -414,6 +429,22 @@ module.exports = bot => {
     if (!text || text.startsWith('/')) return next();
 
     try {
+      if (action === 'welcome_emoji' || action === 'emoji_bienvenida') {
+        const entity = (ctx.message.entities || []).find(e => e.type === 'custom_emoji' && e.custom_emoji_id);
+        if (!entity?.custom_emoji_id) return ctx.reply('❌ Manda un emoji Premium real de Telegram.');
+        await saveConfig({ bienvenida_emoji_premium: String(entity.custom_emoji_id) });
+        clearPending(ctx.from.id);
+        return ctx.reply('✅ Emoji Premium de bienvenida guardado automáticamente.');
+      }
+
+      if (action === 'gallery_emoji' || action === 'emoji_galeria') {
+        const entity = (ctx.message.entities || []).find(e => e.type === 'custom_emoji' && e.custom_emoji_id);
+        if (!entity?.custom_emoji_id) return ctx.reply('❌ Manda un emoji Premium real de Telegram.');
+        await saveConfig({ galeria_emoji_premium: String(entity.custom_emoji_id) });
+        clearPending(ctx.from.id);
+        return ctx.reply('✅ Emoji Premium de galería guardado automáticamente.');
+      }
+
       if (action === 'welcome_text' || action === 'texto_bienvenida') {
         const entities = ctx.message.entities || [];
         const premiumIds = entities
@@ -431,6 +462,19 @@ module.exports = bot => {
           (premiumIds.length ? '\n💎 Emoji premium detectado automáticamente.' : '') +
           '\n\nUsa /admin para volver al panel.'
         );
+      }
+
+      if (action === 'gallery_text' || action === 'texto_galeria') {
+        const entities = ctx.message.entities || [];
+        const premium = entities.find(e => e.type === 'custom_emoji' && e.custom_emoji_id);
+        const { textoConPremiumToHtml } = require('../utils');
+        const converted = textoConPremiumToHtml(text, entities);
+        await saveConfig({
+          galeria_texto: converted.html,
+          ...(premium?.custom_emoji_id ? { galeria_emoji_premium: String(premium.custom_emoji_id) } : {})
+        });
+        clearPending(ctx.from.id);
+        return ctx.reply('✅ Texto de galería actualizado.' + (premium ? '\n💎 Emoji Premium detectado automáticamente.' : ''));
       }
 
       if (action === 'template_create') {
