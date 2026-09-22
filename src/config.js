@@ -1,15 +1,37 @@
-require('dotenv').config();
-module.exports = {
-  BOT_TOKEN: process.env.BOT_TOKEN,
-  WEBAPP_URL: process.env.WEBAPP_URL || 'https://tu-webapp.com',
-  CANAL_OFICIAL: process.env.CANAL_OFICIAL || 'https://t.me/tu_canal',
-  ADMIN_IDS_ENV: (process.env.ADMIN_IDS || '8719034760').split(',').map(s=>s.trim()).filter(Boolean),
-  FIREBASE: {
-    apiKey: process.env.FIREBASE_API_KEY,
-    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.FIREBASE_APP_ID,
+const fs = require('fs');
+const path = '/tmp/database.json';
+
+let data = { usuarios: {}, bienvenidas: {} };
+
+// Intenta cargar si ya existe
+try {
+  if(fs.existsSync(path)){
+    data = JSON.parse(fs.readFileSync(path, 'utf8'));
   }
+} catch(e){
+  console.log("Creando DB nueva");
+}
+
+function guardar() {
+  try{
+    fs.writeFileSync(path, JSON.stringify(data, null, 2));
+    console.log("💾 Guardado en nube TG /tmp");
+  }catch(e){
+    console.log("Error guardando", e.message);
+  }
+}
+
+module.exports = {
+  saveUser: (id, info) => {
+    data.usuarios[id] = {...data.usuarios[id],...info, fecha: new Date().toISOString() };
+    guardar();
+    return data.usuarios[id];
+  },
+  getUser: (id) => data.usuarios[id] || null,
+  saveBienvenida: (texto) => {
+    data.bienvenidas['general'] = texto;
+    guardar();
+  },
+  getBienvenida: () => data.bienvenidas['general'] || null,
+  getAll: () => data
 };
