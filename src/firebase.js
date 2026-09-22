@@ -1,4 +1,4 @@
-const { initializeApp } = require('firebase/app');
+const { initializeApp, getApps, getApp } = require('firebase/app');
 const { getFirestore } = require('firebase/firestore');
 require('dotenv').config();
 
@@ -12,7 +12,16 @@ const firebaseConfig = {
   measurementId: process.env.FIREBASE_MEASUREMENT_ID
 };
 
-const app = initializeApp(firebaseConfig);
+// Evita "Firebase App already exists" en Render
+let app;
+if (!getApps().length) {
+  app = initializeApp(firebaseConfig);
+  console.log("✅ Firebase inicializado");
+} else {
+  app = getApp();
+  console.log("♻️ Firebase reutilizado");
+}
+
 const db = getFirestore(app);
 
-module.exports = { db };
+module.exports = { db, app };
