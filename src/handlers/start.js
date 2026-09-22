@@ -1,20 +1,30 @@
-const { getConfig } = require('../cache');
-const { replaceVars } = require('../utils');
-module.exports = (bot)=>{
-  bot.start(async(ctx)=>{
-    try{
-      const c = await getConfig();
-      let txt = replaceVars(c.bienvenida_texto, ctx);
-      const btns = c.botones?.bienvenida || {};
-      const kb = [
-        [{text: (btns.galeria_virtual?.text||"💖 VIRTUAL GALERIA 💖"), web_app:{url:process.env.WEBAPP_URL||"https://google.com"}}],
-        [{text: (btns.lista_modelos?.text||"👑 LISTA MODELOS 👑"), callback_data:"ver_modelos"}],
-        [{text: (btns.canal_oficial?.text||"💎 CANAL OFICIAL 💎"), url:process.env.CANAL_OFICIAL||"https://t.me/"}]
-      ];
-      if(c.bienvenida_media){
-        try{ return await ctx.replyWithPhoto(c.bienvenida_media,{caption:txt,parse_mode:'HTML',reply_markup:{inline_keyboard:kb}}); }catch(e){}
-      }
-      await ctx.reply(txt,{parse_mode:'HTML',reply_markup:{inline_keyboard:kb}});
-    }catch(e){ await ctx.reply("Hola 💖 Bienvenid@"); }
+const { saveUser, getBienvenida } = require('../config/db');
+
+module.exports = (bot) => {
+  bot.start(async (ctx) => {
+    const id = ctx.from.id;
+    const nombre = ctx.from.first_name || 'Hermosa';
+
+    // Guardar en nube de Telegram
+    saveUser(id, {
+      id,
+      username: ctx.from.username || '',
+      first_name: nombre
+    });
+
+    // Respaldo en canal
+    try {
+      await ctx.telegram.sendMessage(
+        process.env.CANAL_ID,
+        `👤 <b>NUEVA USUARIA</b>\n\nID: <code>${id}</code>\nNombre: ${nombre}\nUsername: @${ctx.from.username || 'sin username'}`,
+        { parse_mode: 'HTML' }
+      );
+    } catch(e){ console.log("No se pudo avisar al canal:", e.message); }
+
+    const bienvenida = getBienvenida();
+    const texto = bienvenida || `👸🏻 ¡Bienvenida ${nombre}! ✨\n\nTu perfil ya está guardado en la nube ☁️\n\nUsa /modelos para ver la galería\n🌐 ${process.env.WEBAPP_URL}`;
+
+    console.log(`✅ Usuario ${id} guardado en nube TG`);
+    return ctx.reply(texto, { parse_mode: 'HTML' });
   });
 };
