@@ -13,8 +13,8 @@ app.listen(PORT, async () => {
   console.log(`Web server en ${PORT}`);
   (async () => {
     try {
-      // FIX 409 - borra webhook viejo y espera
       await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+      console.log('🗑️ Webhook borrado');
       await new Promise(r => setTimeout(r, 2000));
       await bot.launch({ 
         dropPendingUpdates: true,
@@ -23,8 +23,12 @@ app.listen(PORT, async () => {
       console.log('✅ Bot iniciado - botones 🔵🔴 + premium');
     } catch (e) {
       console.error('❌ Error bot.launch:', e.message);
-      // reintento en 5s si hay 409
-      setTimeout(() => bot.launch({ dropPendingUpdates: true }), 5000);
+      console.log('🔄 Reintentando en 5s...');
+      setTimeout(() => {
+        bot.launch({ dropPendingUpdates: true }).then(() => {
+          console.log('✅ Bot iniciado en reintento');
+        });
+      }, 5000);
     }
   })();
 });
