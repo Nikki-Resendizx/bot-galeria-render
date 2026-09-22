@@ -1,9 +1,17 @@
-const { getBotMedia }=require('../config/db');
-const { Markup }=require('telegraf');
-const { webAppButton }=require('../buttons');
-module.exports=bot=>bot.command('galeria',async ctx=>{
-  const m=await getBotMedia();
-  const kb=Markup.inlineKeyboard([[await webAppButton('webapp',process.env.WEBAPP_URL||'')]]);
-  if(m.galeria)return ctx.replyWithPhoto(m.galeria,{caption:'🖼️ <b>GALERÍA VIRTUAL</b> 💎',parse_mode:'HTML',...kb});
-  return ctx.reply('🖼️ <b>GALERÍA VIRTUAL</b> 💎',{parse_mode:'HTML',...kb});
-});
+const { sendLista } = require('./modelos');
+module.exports = bot => {
+  bot.command('galeria', async ctx => {
+    try {
+      return await sendLista(ctx);
+    } catch (e) {
+      console.error('GALERIA: error cargando lista de modelos:', e);
+      return ctx.reply('❌ No pude cargar la galería de modelos.');
+    }
+  });
+
+  bot.action('galeria', async ctx => {
+    await ctx.answerCbQuery().catch(() => {});
+    try { await ctx.deleteMessage().catch(() => {}); } catch (_) {}
+    return sendLista(ctx);
+  });
+};
