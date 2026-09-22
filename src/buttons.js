@@ -2,7 +2,7 @@ const { getButtonConfig } = require('./config/db');
 
 const DEFAULTS = {
   webapp: { text: '💎 Galería Virtual 💎', style: 'primary' },
-  modelos: { text: '👑 Lista de Modelos 👑', style: 'danger' },
+  modelos: { text: '👑 Lista de Modelos 👑', style: 'danger', callback_data: 'public_modelos' },
   canal_free: { text: '📢 Canal OFICIAL 📢', style: 'success' },
   bueno: { text: '🟢 BUENO', style: 'success' },
   malo: { text: '🔴 MALO', style: 'danger' },
@@ -17,7 +17,14 @@ function normalizeStyle(style) {
 async function button(key, extra = {}) {
   const all = await getButtonConfig();
   const c = Object.assign({}, DEFAULTS[key] || { text: key, style: 'primary' }, all[key] || {}, extra);
-  const out = { text: c.text, style: normalizeStyle(c.style), ...extra };
+  const out = {
+    text: c.text,
+    style: normalizeStyle(c.style),
+    ...(c.callback_data ? { callback_data: String(c.callback_data) } : {}),
+    ...(c.url ? { url: String(c.url) } : {}),
+    ...(c.web_app ? { web_app: c.web_app } : {}),
+    ...extra
+  };
   if (c.icon_custom_emoji_id) out.icon_custom_emoji_id = String(c.icon_custom_emoji_id);
   return out;
 }
