@@ -68,10 +68,17 @@ async function sendLista(ctx) {
       if (custom.text && custom.text !== 'emoji_listado') btn.text = custom.text.replace('{perfil}', getModelName(m));
     } catch (_) {}
 
-    // Una modelo por fila: evita que dos botones largos se salgan visualmente
-    // del ancho de la imagen en Telegram.
-    keyboard.push([btn]);
+    // Conservamos 2 botones por fila, limitando el nombre para que cada
+    // botón permanezca compacto y no provoque filas demasiado anchas.
+    row.push(btn);
+
+    if (row.length === 2) {
+      keyboard.push(row);
+      row = [];
+    }
   }
+
+  if (row.length) keyboard.push(row);
 
   // Botones inferiores: conservamos la configuración actual y también
   // aceptamos la estructura antigua del bot de Vercel.
