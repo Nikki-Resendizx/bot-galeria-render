@@ -205,10 +205,33 @@ module.exports = bot => {
       const type = ctx.match[1];
       const id = ctx.match[2];
       const n = await voteModelo(id, type);
+      const modelAfter = await getModelo(id);
+
       await ctx.answerCbQuery(type === 'bueno' ? '👍 Voto registrado' : '👎 Voto registrado');
+
+      const bueno = Number(modelAfter?.votosBueno || 0);
+      const malo = Number(modelAfter?.votosMalo || 0);
+      const total = bueno + malo;
+      const emoji = type === 'bueno' ? '👍🏻' : '👎🏻';
+      const tipoTexto = type === 'bueno' ? 'BUENO' : 'MALO';
+      const username = ctx.from?.username ? '@' + ctx.from.username : 'ID:' + String(ctx.from?.id || '?');
+      const canalId = process.env.CANAL_ID || '-1004377732507';
+
+      try {
+        await ctx.telegram.sendMessage(
+          canalId,
+          emoji + ' VOTO ' + tipoTexto + '\n' +
+          '👑 ' + String(modelAfter?.perfil || id) + ' (@' + String(modelAfter?.username || '').replace(/^@/, '') + ')\n' +
+          '📊 Total: ' + total + '\n' +
+          '👤 ' + username + ' ID:' + String(ctx.from?.id || '?')
+        );
+      } catch (notifyError) {
+        console.error('Error avisando voto al canal:', notifyError.message || notifyError);
+      }
+
       return ctx.reply(
-        (type === 'bueno' ? '👍' : '👎') +
-        ' Voto registrado. Total de este tipo: ' + n
+        emoji + ' Voto registrado. Total de este tipo: ' + n + '\n' +
+        '📊 Total de votos: ' + total
       );
     } catch (e) {
       console.error('Error voto bot:', e);
