@@ -115,20 +115,24 @@ async function sendModelo(ctx, id) {
   const fileId = media?.file_id;
 
   const buttons = [
-    [await webAppButton('perfil_webapp', (process.env.WEBAPP_URL || '') + '/perfil.html?id=' + encodeURIComponent(id), { section: 'plantilla', style: 'primary' })],
+    [await webAppButton('perfil_webapp', (process.env.WEBAPP_URL || '') + '?startapp=m_' + encodeURIComponent(id), { section: 'plantilla', style: 'primary' })],
     [
       await button('votosbueno', { section: 'plantilla', callback_data: 'voto_bueno:' + id, style: 'success' }),
       await button('votosmalos', { section: 'plantilla', callback_data: 'voto_malo:' + id, style: 'danger' })
-    ],
-    [
-      await urlButton('canal_free', model.canalFree || process.env.CANAL_FREE_URL || '', { section: 'plantilla', style: 'primary' }),
-      await urlButton('contactar', model.contacto || process.env.CANAL_FREE_URL || '', { section: 'plantilla', style: 'primary' })
-    ],
-    [
-      await button('volver', { section: 'plantilla', callback_data: 'public_modelos', style: 'primary' }),
-      await button('inicio', { section: 'plantilla', callback_data: 'inicio', style: 'primary' })
     ]
   ];
+
+  const canalUrlModel = model.canalFree || model.canal_free || process.env.CANAL_FREE_URL || '';
+  const contactoUrlModel = model.contacto || (model.username ? 'https://t.me/' + String(model.username).replace(/^@/, '') : '');
+  const contactRow = [];
+  if (canalUrlModel) contactRow.push(await urlButton('canal_free', canalUrlModel, { section: 'plantilla', style: 'primary' }));
+  if (contactoUrlModel) contactRow.push(await urlButton('contactar', contactoUrlModel, { section: 'plantilla', style: 'primary' }));
+  if (contactRow.length) buttons.push(contactRow);
+
+  buttons.push([
+    await button('volver', { section: 'plantilla', callback_data: 'public_modelos', style: 'primary' }),
+    await button('inicio', { section: 'plantilla', callback_data: 'inicio', style: 'primary' })
+  ]);
 
   const markup = Markup.inlineKeyboard(buttons);
 
