@@ -373,7 +373,14 @@ module.exports = bot => {
     }
 
     if (a === 'adm_button_edit') {
-      return promptText(ctx, ctx.from.id, 'button_edit', '✏️ <b>Diseño de botones por sección</b>\n\nFormato: <code>seccion.clave #r 💎 TEXTO</code>\nEjemplos:\n<code>inicio.webapp #p 💎 GALERÍA VIRTUAL</code>\n<code>galeria.canal_oficial #g 📢 CANAL OFICIAL</code>\n<code>plantilla.bueno #g 👍 BUENO</code>\n\n🔴 #r = rojo · 🔵 #p = azul · 🟢 #g = verde\n💎 Usa un emoji premium real; Telegram entrega su ID automáticamente.');
+      return promptText(ctx, ctx.from.id, 'button_edit', '✏️ <b>Diseño de botones</b>\n\nFormato: <code>seccion.clave #r 💎 TEXTO</code>\n\n🔴 #r = rojo · 🔵 #p = azul · 🟢 #g = verde\n💎 Usa un emoji premium real; Telegram entrega su ID automáticamente.');
+    }
+
+    if (a.startsWith('adm_btnedit:')) {
+      const forcedKey = a.slice('adm_btnedit:'.length).trim();
+      if (!forcedKey) return ctx.reply('❌ Botón no válido.');
+      return promptText(ctx, ctx.from.id, 'button_edit:' + forcedKey,
+        '✏️ <b>Editar botón</b>\n\nBotón: <code>' + escapeHtml(forcedKey) + '</code>\n\nEscribe: <code>#r TEXTO</code> o <code>#p TEXTO</code> o <code>#g TEXTO</code>\n💎 Si incluyes un emoji Premium real, se guardará automáticamente.');
     }
 
     if (a === 'adm_stats') {
@@ -630,11 +637,14 @@ module.exports = bot => {
 
       if (action === 'button_edit' || action.startsWith('button_edit:')) {
         const forcedKey = action.startsWith('button_edit:') ? action.slice('button_edit:'.length) : '';
-        const match = text.match(/^(\S+)\s+(#r|#p|#g)\s+([\s\S]+)$/i);
-        if (!match) return ctx.reply('❌ Formato: <code>' + escapeHtml(forcedKey || 'clave') + ' #r 💎 TEXTO</code>', { parse_mode: 'HTML' });
+        const match = forcedKey
+          ? text.match(/^(#r|#p|#g)\s+([\s\S]+)$/i)
+          : text.match(/^(\S+)\s+(#r|#p|#g)\s+([\s\S]+)$/i);
+        if (!match) return ctx.reply('❌ Formato: <code>' + escapeHtml(forcedKey || 'clave') + (forcedKey ? ' #r TEXTO' : ' #r 💎 TEXTO') + '</code>', { parse_mode: 'HTML' });
         const key = forcedKey || match[1];
-        const style = { '#r': 'danger', '#p': 'primary', '#g': 'success' }[match[2].toLowerCase()];
-        const label = match[3].trim();
+        const styleToken = forcedKey ? match[1] : match[2];
+        const label = (forcedKey ? match[2] : match[3]).trim();
+        const style = { '#r': 'danger', '#p': 'primary', '#g': 'success' }[styleToken.toLowerCase()];
         const data = { text: label, style };
         const entity = (ctx.message.entities || []).find(e => e.type === 'custom_emoji');
         if (entity?.custom_emoji_id) data.icon_custom_emoji_id = String(entity.custom_emoji_id);
