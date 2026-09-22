@@ -46,7 +46,9 @@ async function savePlantilla(id, data) {
 }
 
 async function deletePlantilla(id) {
-  await db.collection('plantillas').doc(id).delete();
+  const key = String(id);
+  await db.collection('plantillas').doc(key).delete();
+  await db.collection('config').doc('storage').collection('plantillas').doc(key).delete().catch(() => {});
 }
 
 async function getModelo(id) {
@@ -209,5 +211,5 @@ module.exports = {
   getButtonConfig, saveButtonConfig,
   saveTemplateMedia,
   getStorage, saveStorageIndex,
-  saveModelBotMedia, getModelBotMedia
+  saveModelBotMedia, getModelBotMedia, deleteModelBotMedia
 };
