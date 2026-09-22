@@ -1,103 +1,453 @@
-const { Markup }=require('telegraf');
-const { isAdmin,escapeHtml }=require('../utils');
-const { getPlantillas,getModelos,getBotMedia,getUsers,getConfig,getStorage,getButtonConfig,saveButtonConfig }=require('../config/db');
+const { Markup } = require('telegraf');
+const {
+  isAdmin, escapeHtml
+} = require('../utils');
+const {
+  getPlantillas, getModelos, getBotMedia, getUsers, getConfig, getStorage,
+  getButtonConfig, saveButtonConfig, saveConfig,
+  deletePlantilla, deleteModelo, resetModeloVotes
+} = require('../config/db');
 
-function b(text,data,style='primary',icon){const x={text,style,...data};if(icon)x.icon_custom_emoji_id=icon;return x;}
-const panelKeyboard=()=>Markup.inlineKeyboard([
-  [b('👋 BIENVENIDA',{callback_data:'adm_bienvenida'},'primary'),b('🖼️ GALERÍA',{callback_data:'adm_galeria'},'primary')],
-  [b('💃 MODELOS',{callback_data:'adm_modelos'},'success'),b('📝 PLANTILLAS',{callback_data:'adm_plantillas'},'primary')],
-  [b('👥 USUARIOS',{callback_data:'adm_usuarios'},'primary'),b('👑 ADMINS',{callback_data:'adm_admins'},'danger')],
-  [b('🔘 BOTONES',{callback_data:'adm_botones'},'primary'),b('📊 ESTADÍSTICAS',{callback_data:'adm_stats'},'success')],
-  [b('📦 STORAGE TELEGRAM',{callback_data:'adm_storage'},'primary')],
-  [b('🔄 RECARGAR',{callback_data:'adm_reload'},'primary')]
-]);
+const pending = new Map();
 
-async function showPanel(ctx, edit=false){
-  const [p,m,media,users,storage]=await Promise.all([getPlantillas(),getModelos(),getBotMedia(),getUsers(),getStorage()]);
-  const linked=Object.keys(storage.topics||{}).length;
-  const text='👑 <b>PANEL DE ADMIN VERIFIEDMODELS</b> 👑\n\n'+
-    '👋 Bienvenida: '+(media.bienvenida?'✅':'❌')+'\n'+
-    '🖼️ Galería: '+(media.galeria?'✅':'❌')+'\n'+
-    '💃 Modelos en Firebase: <b>'+m.length+'</b>\n'+
-    '📝 Plantillas: <b>'+Object.keys(p).length+'</b>\n'+
-    '👥 Usuarios: <b>'+users.length+'</b>\n'+
-    '📦 Temas Storage vinculados: <b>'+linked+'/6</b>\n\n'+
-    '☁️ Firebase → información de modelos\n'+
-    '📸 Telegram → fotografías del bot\n\n'+
-    '<i>Selecciona una sección:</i>';
-  if(edit){
-    try{return await ctx.editMessageText(text,{parse_mode:'HTML',...panelKeyboard()});}catch(e){}
-  }
-  return ctx.reply(text,{parse_mode:'HTML',...panelKeyboard()});
+function b(text, callback_data, style = 'primary') {
+  return { text, callback_data, style };
 }
 
-module.exports=bot=>{
-  bot.command('boton',async ctx=>{
-    if(!await isAdmin(ctx.from.id))return;
-    const a=ctx.message.text.replace(/^\/boton\s*/i,'').split('|').map(x=>x.trim());
-    if(a.length<3)return ctx.reply('🔘 Uso:\n/boton clave | texto | color | emoji_id\n\nColores: primary, success, danger\nEjemplo:\n/boton bueno | 👍 BUENO | success | 123456789');
-    const [key,text,style,emojiId]=a;
-    if(!/^(primary|success|danger)$/i.test(style))return ctx.reply('❌ Color inválido. Usa primary, success o danger.');
-    await saveButtonConfig(key,{text,style:style.toLowerCase(),...(emojiId?{icon_custom_emoji_id:emojiId}: {})});
-    return ctx.reply('✅ Botón <b>'+escapeHtml(key)+'</b> guardado.\\n🎨 Color: <b>'+style.toLowerCase()+'</b>\\n💎 Emoji premium: '+(emojiId?'✅':'❌'),{parse_mode:'HTML'});
+function kb(rows) {
+  return Markup.inlineKeyboard(rows);
+}
+
+const panelKeyboard = () => kb([
+  [b('👋 BIENVENIDA', 'adm_bienvenida'), b('🖼️ GALERÍA', 'adm_galeria')],
+  [b('💃 MODELOS', 'adm_modelos'), b('📝 PLANTILLAS', 'adm_plantillas')],
+  [b('👥 USUARIOS', 'adm_usuarios'), b('👑 ADMINS', 'adm_admins')],
+  [b('🔘 BOTONES', 'adm_botones'), b('📊 ESTADÍSTICAS', 'adm_stats')],
+  [b('📦 STORAGE TELEGRAM', 'adm_storage')],
+  [b('🔄 RECARGAR', 'adm_reload')]
+]);
+
+function setPending(userId, action) {
+  pending.set(String(userId), action);
+}
+
+function clearPending(userId) {
+  pending.delete(String(userId));
+}
+
+function getPending(userId) {
+  return pending.get(String(userId));
+}
+
+async function showPanel(ctx, edit = false) {
+  const [p, m, media, users, storage] = await Promise.all([
+    getPlantillas(), getModelos(), getBotMedia(), getUsers(), getStorage()
+  ]);
+  const linked = Object.keys(storage.topics || {}).length;
+  const text =
+    '👑 <b>PANEL DE ADMIN VERIFIEDMODELS</b> 👑\n\n' +
+    '👋 Bienvenida: ' + (media.bienvenida ? '✅' : '❌') + '\n' +
+    '🖼️ Galería: ' + (media.galeria ? '✅' : '❌') + '\n' +
+    '💃 Modelos en Firebase: <b>' + m.length + '</b>\n' +
+    '📝 Plantillas: <b>' + Object.keys(p).length + '</b>\n' +
+    '👥 Usuarios: <b>' + users.length + '</b>\n' +
+    '📦 Temas Storage vinculados: <b>' + linked + '/6</b>\n\n' +
+    '☁️ Firebase → datos y configuración\n' +
+    '📸 Telegram → fotografías y archivos\n\n' +
+    '<i>Selecciona una sección:</i>';
+
+  if (edit) {
+    try { return await ctx.editMessageText(text, { parse_mode: 'HTML', ...panelKeyboard() }); }
+    catch (_) {}
+  }
+  return ctx.reply(text, { parse_mode: 'HTML', ...panelKeyboard() });
+}
+
+function sectionKeyboard(section) {
+  const rows = [];
+  if (section === 'bienvenida') {
+    rows.push([b('📝 Cambiar texto', 'adm_welcome_text'), b('📸 Cambiar foto', 'adm_welcome_photo')]);
+    rows.push([b('👁️ Vista previa', 'adm_welcome_preview')]);
+  }
+  if (section === 'galeria') {
+    rows.push([b('📸 Cambiar foto', 'adm_gallery_photo')]);
+    rows.push([b('🌐 Ver WebApp URL', 'adm_gallery_url')]);
+  }
+  if (section === 'plantillas') {
+    rows.push([b('➕ Crear', 'adm_template_create'), b('📋 Lista', 'adm_template_list')]);
+    rows.push([b('🗑️ Eliminar', 'adm_template_delete')]);
+  }
+  if (section === 'modelos') {
+    rows.push([b('📋 Lista', 'adm_model_list'), b('➕ Nueva', 'adm_model_create')]);
+    rows.push([b('✏️ Editar', 'adm_model_edit'), b('🗑️ Eliminar', 'adm_model_delete')]);
+    rows.push([b('🔄 Reset votos', 'adm_model_reset')]);
+  }
+  if (section === 'usuarios') {
+    rows.push([b('📋 Lista', 'adm_user_list')]);
+  }
+  if (section === 'admins') {
+    rows.push([b('➕ Agregar', 'adm_admin_add'), b('🗑️ Quitar', 'adm_admin_remove')]);
+    rows.push([b('📋 Lista', 'adm_admin_list')]);
+  }
+  if (section === 'botones') {
+    rows.push([b('📋 Lista', 'adm_button_list'), b('✏️ Configurar', 'adm_button_edit')]);
+  }
+  if (section === 'stats') {
+    rows.push([b('📊 Actualizar', 'adm_stats')]);
+    rows.push([b('🔄 Reset votos modelo', 'adm_model_reset')]);
+  }
+  if (section === 'storage') {
+    rows.push([b('🔄 Estado', 'adm_storage')]);
+    rows.push([b('📖 Cómo vincular', 'adm_storage_help')]);
+  }
+  rows.push([b('⬅️ Volver al panel', 'adm_home')]);
+  return kb(rows);
+}
+
+function promptText(ctx, userId, action, message) {
+  setPending(userId, action);
+  return ctx.reply(message, { parse_mode: 'HTML', ...Markup.forceReply() });
+}
+
+function modelRows(models) {
+  return models.slice(0, 50).map(m =>
+    '• <code>' + escapeHtml(m.id) + '</code> — ' +
+    escapeHtml(m.perfil || m.username || m.id) +
+    ' | 👍 ' + Number(m.votosBueno || 0) +
+    ' 👎 ' + Number(m.votosMalo || 0)
+  );
+}
+
+module.exports = bot => {
+  bot.command('boton', async ctx => {
+    if (!await isAdmin(ctx.from.id)) return;
+    const a = ctx.message.text.replace(/^\/boton\s*/i, '').split('|').map(x => x.trim());
+    if (a.length < 3) {
+      return ctx.reply(
+        '🔘 Uso: /boton clave | texto | color | emoji_id\n\n' +
+        'Colores: primary, success, danger\n' +
+        'Ejemplo: /boton bueno | 👍 BUENO | success | 123456789'
+      );
+    }
+    const [key, text, style, emojiId] = a;
+    if (!/^(primary|success|danger)$/i.test(style)) {
+      return ctx.reply('❌ Color inválido. Usa primary, success o danger.');
+    }
+    await saveButtonConfig(key, {
+      text,
+      style: style.toLowerCase(),
+      ...(emojiId ? { icon_custom_emoji_id: emojiId } : {})
+    });
+    return ctx.reply(
+      '✅ Botón <b>' + escapeHtml(key) + '</b> guardado.\n' +
+      '🎨 Color: <b>' + style.toLowerCase() + '</b>\n' +
+      '💎 Emoji premium: ' + (emojiId ? '✅' : '❌'),
+      { parse_mode: 'HTML' }
+    );
   });
-  bot.command('admin',async ctx=>{if(!await isAdmin(ctx.from.id))return;return showPanel(ctx);});
 
-  bot.action(/^adm_(?!reload$).+/,async ctx=>{
-    if(!await isAdmin(ctx.from.id))return ctx.answerCbQuery('Sin permiso');
-    await ctx.answerCbQuery();
-    const a=ctx.callbackQuery.data;
-
-    if(a==='adm_bienvenida'){
-      return ctx.reply('👋 <b>BIENVENIDA</b>\n\n📝 Texto: /bienvenida TU TEXTO\n📸 Foto: envía una foto con caption /bienvenida\n\nVariables disponibles: {mencion}, {nombre}, {usuario}, {username}, {nombre_completo}',{parse_mode:'HTML'});
-    }
-    if(a==='adm_galeria'){
-      return ctx.reply('🖼️ <b>GALERÍA</b>\n\n📸 Envía una foto con caption /galeria\n🌐 La galería WebApp sigue usando '+escapeHtml(process.env.WEBAPP_URL||'la URL configurada')+'.',{parse_mode:'HTML'});
-    }
-    if(a==='adm_modelos'){
-      const m=await getModelos();
-      const rows=m.slice(0,50).map(x=>'• <code>'+escapeHtml(x.id)+'</code> — '+escapeHtml(x.perfil||x.username||x.id)+' | 👍 '+Number(x.votosBueno||0)+' 👎 '+Number(x.votosMalo||0));
-      return ctx.reply('💃 <b>MODELOS</b>\n\n'+(rows.join('\n')||'Sin modelos')+'\n\n📸 Para guardar una foto del BOT:\n<code>/foto_modelo ID</code> y después envía la foto.',{parse_mode:'HTML'});
-    }
-    if(a==='adm_plantillas'){
-      const p=await getPlantillas();
-      const rows=Object.keys(p).map(id=>'• <code>'+escapeHtml(id)+'</code> — '+escapeHtml(p[id].nombre||id));
-      return ctx.reply('📝 <b>PLANTILLAS</b>\n\n'+(rows.join('\n')||'Sin plantillas')+'\n\n➕ Crear: /plantilla nombre | texto\n📸 Foto: /plantilla_foto ID + foto',{parse_mode:'HTML'});
-    }
-    if(a==='adm_usuarios'){
-      const u=await getUsers();
-      const rows=u.slice(0,50).map(x=>'• <code>'+escapeHtml(x.id)+'</code> — '+escapeHtml(x.username?'@'+x.username:(x.first_name||'Sin nombre'))+(x.baneado?' 🔴 BANEADO':' 🟢'));
-      return ctx.reply('👥 <b>USUARIOS</b>\n\n'+(rows.join('\n')||'Sin usuarios')+'\n\nEsta vista muestra los usuarios registrados por /start.',{parse_mode:'HTML'});
-    }
-    if(a==='adm_admins'){
-      const c=await getConfig();
-      const admins=Array.isArray(c.admins)?c.admins.map(String):[];
-      const env=String(process.env.ADMIN_IDS||process.env.ADMIN_ID||'').split(',').map(x=>x.trim()).filter(Boolean);
-      const all=[...new Set([...env,...admins])];
-      return ctx.reply('👑 <b>ADMINS</b>\n\n'+(all.map(id=>'• <code>'+id+'</code>').join('\n')||'No hay admins configurados')+'\n\nPara agregar administradores usaremos la configuración segura del bot.',{parse_mode:'HTML'});
-    }
-    if(a==='adm_botones'){
-      const bc=await getButtonConfig();
-      const keys=Object.keys(bc);
-      return ctx.reply('🔘 <b>BOTONES</b>\n\n🎨 Colores disponibles: <b>primary</b> 🔵 · <b>success</b> 🟢 · <b>danger</b> 🔴\n💎 Custom emoji: disponible mediante <code>icon_custom_emoji_id</code>.\n\n'+(keys.length?keys.map(k=>'• <code>'+escapeHtml(k)+'</code> → '+escapeHtml(bc[k].text||'')+' ['+escapeHtml(bc[k].style||'primary')+']').join('\n'):'No hay botones personalizados guardados.')+'\n\n<b>Configurar:</b>\n<code>/boton clave | texto | color | emoji_id</code>',{parse_mode:'HTML'});
-    }
-    if(a==='adm_stats'){
-      const [m,u]=await Promise.all([getModelos(),getUsers()]);
-      const bueno=m.reduce((n,x)=>n+Number(x.votosBueno||0),0);
-      const malo=m.reduce((n,x)=>n+Number(x.votosMalo||0),0);
-      return ctx.reply('📊 <b>ESTADÍSTICAS</b>\n\n👥 Usuarios: '+u.length+'\n💃 Modelos: '+m.length+'\n👍 Votos buenos: '+bueno+'\n👎 Votos malos: '+malo+'\n🗳️ Total votos: '+(bueno+malo),{parse_mode:'HTML'});
-    }
-    if(a==='adm_storage'){
-      const s=await getStorage();
-      const keys=['bienvenida','galeria','modelos','plantillas','botones','otros'];
-      return ctx.reply('📦 <b>STORAGE TELEGRAM</b>\n\nGrupo: '+escapeHtml(String(s.group_id||'❌ no vinculado'))+'\n\n'+keys.map(k=>'• '+k+': '+(s.topics?.[k]?.message_thread_id?'✅':'❌')).join('\n')+'\n\nCada foto del bot se publica en su tema y se conserva mediante file_id.',{parse_mode:'HTML'});
-    }
+  bot.command('admin', async ctx => {
+    if (!await isAdmin(ctx.from.id)) return;
+    clearPending(ctx.from.id);
     return showPanel(ctx);
   });
 
-  bot.action('adm_reload',async ctx=>{
-    if(!await isAdmin(ctx.from.id))return ctx.answerCbQuery('Sin permiso');
-    await ctx.answerCbQuery('Configuración recargada');
-    return showPanel(ctx,true);
+  bot.action(/^adm_(?!reload$).+/, async ctx => {
+    if (!await isAdmin(ctx.from.id)) return ctx.answerCbQuery('Sin permiso');
+    const a = ctx.callbackQuery.data;
+    await ctx.answerCbQuery();
+
+    if (a === 'adm_home') return showPanel(ctx, true);
+
+    if (a === 'adm_bienvenida') {
+      return ctx.editMessageText(
+        '👋 <b>BIENVENIDA</b>\n\n' +
+        'Aquí administras el texto y la fotografía que recibe el usuario al usar /start.\n\n' +
+        'Variables: <code>{mencion}</code> <code>{nombre}</code> <code>{usuario}</code> <code>{username}</code> <code>{nombre_completo}</code>',
+        { parse_mode: 'HTML', ...sectionKeyboard('bienvenida') }
+      );
+    }
+
+    if (a === 'adm_welcome_text') {
+      return promptText(ctx, ctx.from.id, 'welcome_text',
+        '📝 <b>Nuevo texto de bienvenida</b>\n\nPuedes usar {mencion}, {nombre}, {usuario}, {username}, {nombre_completo}.');
+    }
+
+    if (a === 'adm_welcome_photo') {
+      setPending(ctx.from.id, 'welcome_photo');
+      return ctx.reply('📸 Envía ahora la foto con caption <code>/bienvenida</code>. Se publicará en el tema 👋 BIENVENIDA del Storage.', { parse_mode: 'HTML' });
+    }
+
+    if (a === 'adm_welcome_preview') {
+      const [c, media] = await Promise.all([getConfig(), getBotMedia()]);
+      const text = c.bienvenida_texto || '👋 ¡Hola {mencion}! 💎';
+      return ctx.reply('👁️ <b>Vista previa</b>\n\n' + text.replace(/\{mencion\}/g, '@Usuario'), { parse_mode: 'HTML' });
+    }
+
+    if (a === 'adm_galeria') {
+      return ctx.editMessageText(
+        '🖼️ <b>GALERÍA</b>\n\nLa fotografía se guarda en el tema 🖼️ GALERÍA de Telegram Storage.\nLa URL de la Mini App se conserva en WEBAPP_URL.',
+        { parse_mode: 'HTML', ...sectionKeyboard('galeria') }
+      );
+    }
+
+    if (a === 'adm_gallery_photo') {
+      setPending(ctx.from.id, 'gallery_photo');
+      return ctx.reply('📸 Envía ahora la foto con caption <code>/galeria</code>. Se publicará en el tema 🖼️ GALERÍA.', { parse_mode: 'HTML' });
+    }
+
+    if (a === 'adm_gallery_url') {
+      return ctx.reply('🌐 <b>WEBAPP_URL</b>\n\n<code>' + escapeHtml(process.env.WEBAPP_URL || 'No configurada') + '</code>', { parse_mode: 'HTML' });
+    }
+
+    if (a === 'adm_plantillas') {
+      return ctx.editMessageText('📝 <b>PLANTILLAS</b>\n\nCrea plantillas con variables y guarda sus fotografías en 📝 PLANTILLAS.', { parse_mode: 'HTML', ...sectionKeyboard('plantillas') });
+    }
+
+    if (a === 'adm_template_create') {
+      return promptText(ctx, ctx.from.id, 'template_create',
+        '➕ <b>Nueva plantilla</b>\n\nEscribe: <code>Nombre | Texto con {perfil} {edad} {nacionalidad} {servicios} {votosBueno} {votosMalo} {total_votos}</code>');
+    }
+
+    if (a === 'adm_template_list') {
+      const p = await getPlantillas();
+      const rows = Object.keys(p).map(id =>
+        '• <code>' + escapeHtml(id) + '</code> — ' + escapeHtml(p[id].nombre || id) +
+        (p[id].media_file_id ? ' 📸' : '')
+      );
+      return ctx.reply('📋 <b>PLANTILLAS</b>\n\n' + (rows.join('\n') || 'Sin plantillas'), { parse_mode: 'HTML', ...sectionKeyboard('plantillas') });
+    }
+
+    if (a === 'adm_template_delete') {
+      return promptText(ctx, ctx.from.id, 'template_delete', '🗑️ Escribe el <code>ID</code> de la plantilla que deseas eliminar.');
+    }
+
+    if (a === 'adm_modelos') {
+      return ctx.editMessageText('💃 <b>MODELOS</b>\n\nLos datos viven en Firebase. Las fotos del bot se publican en el tema 💃 MODELOS y se guardan como file_id.', { parse_mode: 'HTML', ...sectionKeyboard('modelos') });
+    }
+
+    if (a === 'adm_model_list') {
+      const m = await getModelos();
+      return ctx.reply('📋 <b>MODELOS</b>\n\n' + (modelRows(m).join('\n') || 'Sin modelos'), { parse_mode: 'HTML', ...sectionKeyboard('modelos') });
+    }
+
+    if (a === 'adm_model_create') {
+      return promptText(ctx, ctx.from.id, 'model_create',
+        '➕ <b>Nueva modelo</b>\n\nEscribe una línea JSON con los campos que quieras guardar. Ejemplo:\n<code>{"id":"modelo_01","perfil":"Nombre","edad":25,"nacionalidad":"MX","servicios":"Chat hot","descripcion":"Descripción","canal_free":"https://t.me/ejemplo"}</code>\n\nLa foto se puede enviar después con /foto_modelo ID.');
+    }
+
+    if (a === 'adm_model_edit') {
+      return promptText(ctx, ctx.from.id, 'model_edit',
+        '✏️ Escribe: <code>ID | campo | valor</code>\nEjemplo: <code>modelo_01 | edad | 26</code>');
+    }
+
+    if (a === 'adm_model_delete') {
+      return promptText(ctx, ctx.from.id, 'model_delete', '🗑️ Escribe el <code>ID</code> de la modelo que deseas eliminar.');
+    }
+
+    if (a === 'adm_model_reset') {
+      return promptText(ctx, ctx.from.id, 'model_reset', '🔄 Escribe el <code>ID</code> de la modelo a la que deseas poner sus votos en 0.');
+    }
+
+    if (a === 'adm_usuarios') {
+      return ctx.editMessageText('👥 <b>USUARIOS</b>\n\nUsuarios registrados por /start. Desde aquí puedes consultar el registro.', { parse_mode: 'HTML', ...sectionKeyboard('usuarios') });
+    }
+
+    if (a === 'adm_user_list') {
+      const u = await getUsers();
+      const rows = u.slice(0, 100).map(x =>
+        '• <code>' + escapeHtml(x.id) + '</code> — ' +
+        escapeHtml(x.username ? '@' + x.username : (x.first_name || 'Sin nombre')) +
+        (x.baneado ? ' 🔴' : ' 🟢')
+      );
+      return ctx.reply('📋 <b>USUARIOS</b>\n\n' + (rows.join('\n') || 'Sin usuarios'), { parse_mode: 'HTML', ...sectionKeyboard('usuarios') });
+    }
+
+    if (a === 'adm_admins') {
+      return ctx.editMessageText('👑 <b>ADMINISTRADORES</b>\n\nPuedes agregar o quitar IDs de Telegram almacenados en Firebase. ADMIN_IDS/ADMIN_ID del entorno siempre tienen prioridad.', { parse_mode: 'HTML', ...sectionKeyboard('admins') });
+    }
+
+    if (a === 'adm_admin_list') {
+      const c = await getConfig();
+      const env = String(process.env.ADMIN_IDS || process.env.ADMIN_ID || '').split(',').map(x => x.trim()).filter(Boolean);
+      const admins = [...new Set([...env, ...(Array.isArray(c.admins) ? c.admins.map(String) : [])])];
+      return ctx.reply('📋 <b>ADMINS</b>\n\n' + (admins.map(id => '• <code>' + escapeHtml(id) + '</code>').join('\n') || 'Ninguno'), { parse_mode: 'HTML', ...sectionKeyboard('admins') });
+    }
+
+    if (a === 'adm_admin_add') return promptText(ctx, ctx.from.id, 'admin_add', '➕ Escribe el <code>ID numérico de Telegram</code> que deseas agregar como administrador.');
+    if (a === 'adm_admin_remove') return promptText(ctx, ctx.from.id, 'admin_remove', '🗑️ Escribe el <code>ID</code> que deseas quitar de Firebase. No se puede quitar ADMIN_IDS desde el panel.');
+
+    if (a === 'adm_botones') {
+      return ctx.editMessageText('🔘 <b>BOTONES</b>\n\nConfigura texto, color y emoji premium. Los estilos disponibles son <b>primary</b>, <b>success</b> y <b>danger</b>.', { parse_mode: 'HTML', ...sectionKeyboard('botones') });
+    }
+
+    if (a === 'adm_button_list') {
+      const bc = await getButtonConfig();
+      const keys = Object.keys(bc);
+      return ctx.reply('📋 <b>BOTONES CONFIGURADOS</b>\n\n' +
+        (keys.length ? keys.map(k =>
+          '• <code>' + escapeHtml(k) + '</code> → ' + escapeHtml(bc[k].text || '') +
+          ' [' + escapeHtml(bc[k].style || 'primary') + ']' +
+          (bc[k].icon_custom_emoji_id ? ' 💎' : '')
+        ).join('\n') : 'Sin personalizaciones.'), { parse_mode: 'HTML', ...sectionKeyboard('botones') });
+    }
+
+    if (a === 'adm_button_edit') {
+      return promptText(ctx, ctx.from.id, 'button_edit', '✏️ Escribe: <code>clave | texto | color | emoji_id</code>\nEjemplo: <code>bueno | 👍 BUENO | success | 123456789</code>\nEl emoji_id es opcional.');
+    }
+
+    if (a === 'adm_stats') {
+      const m = await getModelos();
+      const u = await getUsers();
+      const bueno = m.reduce((n, x) => n + Number(x.votosBueno || 0), 0);
+      const malo = m.reduce((n, x) => n + Number(x.votosMalo || 0), 0);
+      return ctx.reply('📊 <b>ESTADÍSTICAS</b>\n\n👥 Usuarios: ' + u.length + '\n💃 Modelos: ' + m.length + '\n👍 Buenos: ' + bueno + '\n👎 Malos: ' + malo + '\n🗳️ Total: ' + (bueno + malo), { parse_mode: 'HTML', ...sectionKeyboard('stats') });
+    }
+
+    if (a === 'adm_storage') {
+      const s = await getStorage();
+      const keys = ['bienvenida', 'galeria', 'modelos', 'plantillas', 'botones', 'otros'];
+      return ctx.editMessageText(
+        '📦 <b>STORAGE TELEGRAM</b>\n\n' +
+        'Grupo: <code>' + escapeHtml(String(s.group_id || 'no vinculado')) + '</code>\n\n' +
+        keys.map(k => '• ' + k + ': ' + (s.topics?.[k]?.message_thread_id ? '✅ Topic ' + s.topics[k].message_thread_id : '❌')).join('\n') +
+        '\n\nLas fotos se publican en los temas ya vinculados y Firebase solo conserva sus referencias.',
+        { parse_mode: 'HTML', ...sectionKeyboard('storage') }
+      );
+    }
+
+    if (a === 'adm_storage_help') {
+      return ctx.reply(
+        '📖 <b>VINCULAR TEMAS</b>\n\n' +
+        'Dentro de cada tema del grupo de Storage ejecuta:\n\n' +
+        '<code>/vincular bienvenida</code>\n' +
+        '<code>/vincular galeria</code>\n' +
+        '<code>/vincular modelos</code>\n' +
+        '<code>/vincular plantillas</code>\n' +
+        '<code>/vincular botones</code>\n' +
+        '<code>/vincular otros</code>',
+        { parse_mode: 'HTML', ...sectionKeyboard('storage') }
+      );
+    }
+
+    return showPanel(ctx);
+  });
+
+  bot.action('adm_reload', async ctx => {
+    if (!await isAdmin(ctx.from.id)) return ctx.answerCbQuery('Sin permiso');
+    clearPending(ctx.from.id);
+    await ctx.answerCbQuery('Recargado');
+    return showPanel(ctx, true);
+  });
+
+  bot.on('text', async (ctx, next) => {
+    if (!await isAdmin(ctx.from.id)) return next();
+    const action = getPending(ctx.from.id);
+    if (!action) return next();
+
+    const text = String(ctx.message.text || '').trim();
+    if (!text || text.startsWith('/')) return next();
+
+    try {
+      if (action === 'welcome_text') {
+        await saveConfig({ bienvenida_texto: text });
+        clearPending(ctx.from.id);
+        return ctx.reply('✅ Texto de bienvenida actualizado. Usa /admin para volver al panel.');
+      }
+
+      if (action === 'template_create') {
+        const parts = text.split('|');
+        if (parts.length < 2) return ctx.reply('❌ Formato: Nombre | Texto');
+        const { slugify } = require('../utils');
+        const nombre = parts.shift().trim();
+        const id = slugify(nombre);
+        await require('../config/db').savePlantilla(id, { nombre, texto: parts.join('|').trim() });
+        clearPending(ctx.from.id);
+        return ctx.reply('✅ Plantilla <b>' + escapeHtml(nombre) + '</b> creada. ID: <code>' + id + '</code>', { parse_mode: 'HTML' });
+      }
+
+      if (action === 'template_delete') {
+        await deletePlantilla(text);
+        clearPending(ctx.from.id);
+        return ctx.reply('🗑️ Plantilla <code>' + escapeHtml(text) + '</code> eliminada.', { parse_mode: 'HTML' });
+      }
+
+      if (action === 'model_create') {
+        const data = JSON.parse(text);
+        if (!data.id) throw new Error('Falta id');
+        const { savePlantilla } = require('../config/db');
+        const { db } = require('../config/db');
+        const id = String(data.id);
+        delete data.id;
+        data.votosBueno = Number(data.votosBueno || 0);
+        data.votosMalo = Number(data.votosMalo || 0);
+        await db.collection('modelos').doc(id).set(data, { merge: true });
+        clearPending(ctx.from.id);
+        return ctx.reply('✅ Modelo <b>' + escapeHtml(data.perfil || id) + '</b> creada con ID <code>' + escapeHtml(id) + '</code>.', { parse_mode: 'HTML' });
+      }
+
+      if (action === 'model_edit') {
+        const parts = text.split('|');
+        if (parts.length < 3) return ctx.reply('❌ Formato: ID | campo | valor');
+        const [id, field, ...rest] = parts.map(x => x.trim());
+        const { db } = require('../config/db');
+        const ref = db.collection('modelos').doc(id);
+        const snap = await ref.get();
+        if (!snap.exists) return ctx.reply('❌ Modelo no encontrada.');
+        const numeric = ['edad', 'votosBueno', 'votosMalo'];
+        await ref.set({ [field]: numeric.includes(field) ? Number(rest.join('|')) : rest.join('|') }, { merge: true });
+        clearPending(ctx.from.id);
+        return ctx.reply('✅ Campo <code>' + escapeHtml(field) + '</code> actualizado.', { parse_mode: 'HTML' });
+      }
+
+      if (action === 'model_delete') {
+        const model = await require('../config/db').getModelo(text);
+        if (!model) return ctx.reply('❌ Modelo no encontrada.');
+        await deleteModelo(text);
+        clearPending(ctx.from.id);
+        return ctx.reply('🗑️ Modelo eliminada: <b>' + escapeHtml(model.perfil || text) + '</b>.', { parse_mode: 'HTML' });
+      }
+
+      if (action === 'model_reset') {
+        const model = await require('../config/db').getModelo(text);
+        if (!model) return ctx.reply('❌ Modelo no encontrada.');
+        await resetModeloVotes(text);
+        clearPending(ctx.from.id);
+        return ctx.reply('🔄 Votos de <b>' + escapeHtml(model.perfil || text) + '</b> reiniciados.', { parse_mode: 'HTML' });
+      }
+
+      if (action === 'admin_add' || action === 'admin_remove') {
+        if (!/^\d+$/.test(text)) return ctx.reply('❌ Debe ser un ID numérico de Telegram.');
+        const c = await getConfig();
+        const admins = Array.isArray(c.admins) ? c.admins.map(String) : [];
+        if (action === 'admin_add') {
+          if (!admins.includes(text)) admins.push(text);
+          await saveConfig({ admins });
+          clearPending(ctx.from.id);
+          return ctx.reply('✅ ID <code>' + text + '</code> agregado como administrador.', { parse_mode: 'HTML' });
+        }
+        const nextAdmins = admins.filter(id => id !== text);
+        await saveConfig({ admins: nextAdmins });
+        clearPending(ctx.from.id);
+        return ctx.reply('🗑️ ID <code>' + text + '</code> quitado de los administradores de Firebase.', { parse_mode: 'HTML' });
+      }
+
+      if (action === 'button_edit') {
+        const parts = text.split('|').map(x => x.trim());
+        if (parts.length < 3) return ctx.reply('❌ Formato: clave | texto | color | emoji_id');
+        const [key, label, style, emojiId] = parts;
+        if (!/^(primary|success|danger)$/i.test(style)) return ctx.reply('❌ Color inválido: primary, success o danger.');
+        const data = { text: label, style: style.toLowerCase() };
+        if (emojiId) data.icon_custom_emoji_id = emojiId;
+        await saveButtonConfig(key, data);
+        clearPending(ctx.from.id);
+        return ctx.reply('✅ Botón <code>' + escapeHtml(key) + '</code> actualizado.\n🎨 ' + style.toLowerCase() + '\n💎 ' + (emojiId ? 'emoji premium activo' : 'sin emoji personalizado'), { parse_mode: 'HTML' });
+      }
+
+      return next();
+    } catch (e) {
+      console.error('Admin action error:', e);
+      return ctx.reply('❌ No pude completar la operación: ' + escapeHtml(e.message || 'error'), { parse_mode: 'HTML' });
+    }
   });
 };
