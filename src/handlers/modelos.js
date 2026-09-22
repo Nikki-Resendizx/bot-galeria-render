@@ -163,7 +163,7 @@ async function sendModelo(ctx, id) {
   });
 }
 
-module.exports = bot => {
+const registerModelos = bot => {
   // Lista: ya no envía todas las modelos juntas.
   // Primero muestra botones de 2 en 2 y solo carga la modelo seleccionada.
   bot.command('modelos', async ctx => {
@@ -239,3 +239,8 @@ module.exports = bot => {
     }
   });
 };
+
+registerModelos.sendLista = sendLista;
+registerModelos.sendModelo = sendModelo;
+
+module.exports = registerModelos;
