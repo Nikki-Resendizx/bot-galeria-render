@@ -8,7 +8,7 @@ const {
   deletePlantilla, deleteModelo, resetModeloVotes,
   saveBotMedia, deleteBotMedia, deleteModelBotMedia
 } = require('../config/db');
-const { publishPhotoToStorage } = require('../storage');
+const { publishPhotoToStorage, publishTextToStorage } = require('../storage');
 const { prepararTextoTelegram } = require('../utils');
 
 const pending = new Map();
@@ -393,7 +393,7 @@ module.exports = bot => {
 
     if (a === 'adm_storage') {
       const s = await getStorage();
-      const keys = ['bienvenida', 'galeria', 'modelos', 'plantillas', 'botones', 'otros'];
+      const keys = ['bienvenida', 'plantillas', 'galeria', 'botones', 'admins', 'usuarios', 'modelos'];
       return ctx.editMessageText(
         '📦 <b>STORAGE TELEGRAM</b>\n\n' +
         'Grupo: <code>' + escapeHtml(String(s.group_id || 'no vinculado')) + '</code>\n\n' +
@@ -412,6 +412,9 @@ module.exports = bot => {
         '<code>/vincular modelos</code>\n' +
         '<code>/vincular plantillas</code>\n' +
         '<code>/vincular botones</code>\n' +
+        '<code>/vincular admins</code>\n' +
+        '<code>/vincular usuarios</code>\n' +
+        '<code>/vincular modelos</code>\n' +
         '<code>/vincular otros</code>',
         { parse_mode: 'HTML', ...sectionKeyboard('storage') }
       );
@@ -564,7 +567,23 @@ module.exports = bot => {
         const { slugify } = require('../utils');
         const nombre = parts.shift().trim();
         const id = slugify(nombre);
-        await require('../config/db').savePlantilla(id, { nombre, texto: parts.join('|').trim() });
+        const plantillaText = parts.join('|').trim();
+        const entities = ctx.message.entities || [];
+        const { textoConPremiumToHtml } = require('../utils');
+        const converted = textoConPremiumToHtml(plantillaText, entities);
+        await require('../config/db').savePlantilla(id, {
+          nombre,
+          texto: converted.html,
+          entities,
+          parse_mode: prepararTextoTelegram(converted.html, entities).parse_mode || null
+        });
+        try {
+          await publishTextToStorage(ctx.telegram, 'plantillas',
+            '📝 PLANTILLA\nID: ' + id + '\nNombre: ' + nombre + '\n\n' + converted.html,
+            { parse_mode: 'HTML' });
+        } catch (storageError) {
+          console.error('PLANTILLA: Storage:', storageError.message || storageError);
+        }
         clearPending(ctx.from.id);
         return ctx.reply('✅ Plantilla <b>' + escapeHtml(nombre) + '</b> creada. ID: <code>' + id + '</code>', { parse_mode: 'HTML' });
       }
@@ -626,6 +645,11 @@ module.exports = bot => {
         if (action === 'admin_add') {
           if (!admins.includes(text)) admins.push(text);
           await saveConfig({ admins });
+          try {
+            await publishTextToStorage(ctx.telegram, 'admins', '👑 ADMIN ASCENDIDO\n🆔 ID: ' + text + '\n👤 Por: ' + String(ctx.from.id), {});
+          } catch (storageError) {
+            console.error('ADMINS: Storage:', storageError.message || storageError);
+          }
           clearPending(ctx.from.id);
           return ctx.reply('✅ ID <code>' + text + '</code> agregado como administrador.', { parse_mode: 'HTML' });
         }
