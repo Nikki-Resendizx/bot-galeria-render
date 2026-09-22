@@ -22,5 +22,7 @@ async function button(key, extra = {}) {
   return out;
 }
 async function urlButton(key, url, extra = {}) { return button(key, { url, ...extra }); }
-async function webAppButton(key, url) { return button(key, { web_app: { url } }); }
+async function webAppButton(key, url, extra = {}) {
+  return button(key, { web_app: { url }, ...extra });
+}
 module.exports = { button, urlButton, webAppButton, DEFAULTS, normalizeStyle };
