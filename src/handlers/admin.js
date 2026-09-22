@@ -1,6 +1,6 @@
 const { Markup }=require('telegraf');
 const { isAdmin,escapeHtml }=require('../utils');
-const { getPlantillas,getModelos,getBotMedia,getUsers,getConfig,getStorage }=require('../config/db');
+const { getPlantillas,getModelos,getBotMedia,getUsers,getConfig,getStorage,getButtonConfig,saveButtonConfig }=require('../config/db');
 
 function b(text,data,style='primary',icon){const x={text,style,...data};if(icon)x.icon_custom_emoji_id=icon;return x;}
 const panelKeyboard=()=>Markup.inlineKeyboard([
