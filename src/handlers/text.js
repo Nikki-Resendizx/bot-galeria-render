@@ -1,33 +1,41 @@
 const { bot } = require('../bot');
-const { doc, setDoc, collection, addDoc } = require('firebase/firestore');
+const { doc, setDoc } = require('firebase/firestore');
 const { db } = require('../firebase');
 const { clearCache, getConfig } = require('../cache');
 const { esperando } = require('./admin');
 
-const MAP = { r:'danger', g:'success', p:'primary', b:'primary', rojo:'danger', verde:'success', azul:'primary' };
+// Mapa de colores #r #g #b
+const MAP = {
+  r:'danger', g:'success', p:'primary', b:'primary',
+  rojo:'danger', verde:'success', azul:'primary'
+};
+const COLORES = MAP; // para que no falle si usas COLORES
 
-function contarPremium(entities){ return (entities||[]).filter(e=>e.type==='custom_emoji').length; }
+function contarPremium(entities){
+  return (entities||[]).filter(e=>e.type==='custom_emoji').length;
+}
 
 function parseBoton(txt, entities){
-  // #g 💎 CANAL OFICIAL 
--> Guarda: style: success (verde) + icon_custom_emoji_id: ID de 💎 + text: CANAL OFICIAL
-  let color=''; let rest=txt.trim();
+  // #g 💎 CANAL OFICIAL -> Guarda: style: success (verde) + icon_custom_emoji_id
+  let color='';
+  let rest=txt.trim();
   let m=rest.match(/^#(r|g|b|p|rojo|verde|azul)\s+/i);
+
   if(m){
     let code=m[1].toLowerCase();
-    color=COLORES[code]||'';
-    rest=rest.slice(m[0].length).trim(); // queda "💎 CANAL OFICIAL"
+    color=MAP[code]||'';
+    rest=rest.slice(m[0].length).trim();
   }
+
   // Ajustar offset de entities después de quitar #g
-  let offset = txt.length - rest.length - (m?0:0);
   if(m){
     let cut=m[0].length;
     entities=(entities||[]).map(e=>{
       return {...e, offset: e.offset - cut};
     }).filter(e=>e.offset>=0);
   }
+
   let total=contarPremium(entities);
-  // Solo 1 premium permitido
   let premiumId = (entities.find(e=>e.type==='custom_emoji')||{}).custom_emoji_id||null;
 
   return { color, texto: rest, entities, totalPremium: total, premiumId };
@@ -59,7 +67,7 @@ bot.on('text', async(ctx)=>{
 
   // EDITOR DE BOTONES CON SINTAXIS #r #g #p
   if(esperando[key].startsWith('btn_')){
-    let btnKey=esperando[key].replace('btn_',''); // ej bienvenida_galeria_virtual
+    let btnKey=esperando[key].replace('btn_','');
     let seccion=btnKey.split('_')[0];
     let campo=btnKey.split('_').slice(1).join('_');
 
@@ -73,25 +81,26 @@ bot.on('text', async(ctx)=>{
     }
 
     let cfg=await getConfig();
-    if(!cfg.botones) cfg.botones={}; if(!cfg.botones[seccion]) cfg.botones[seccion]={}; if(!cfg.botones[seccion][campo]) cfg.botones[seccion][campo]={};
+    if(!cfg.botones) cfg.botones={};
+    if(!cfg.botones[seccion]) cfg.botones[seccion]={};
+    if(!cfg.botones[seccion][campo]) cfg.botones[seccion][campo]={};
 
     cfg.botones[seccion][campo].text = texto;
     cfg.botones[seccion][campo].entities = ents;
     cfg.botones[seccion][campo].color = color||cfg.botones[seccion][campo].color||'';
     cfg.botones[seccion][campo].premiumId = premiumId||'';
-    cfg.botones[seccion][campo].raw = txt; // guardamos ejemplo original
+    cfg.botones[seccion][campo].raw = txt;
 
     await setDoc(doc(db,"config","bot"),{botones:cfg.botones},{merge:true});
     clearCache(); delete esperando[key];
 
     let msg=`🧩 BOTON ${campo.toUpperCase()} GUARDADO\n`;
-    if(color) msg+=`Color: ${color} (${Object.keys(COLORES).find(k=>COLORES[k]===color)}) \n`;
+    if(color) msg+=`Color: ${color}\n`;
     msg+=`Premium: ${totalPremium>0?'✅ SI':'❌ NO'} (${totalPremium})\n`;
     msg+=`Texto: ${texto}`;
 
-    await ctx.reply(msg,{parse_mode:'HTML'});
-    // replica exacta como se verá
-    await ctx.reply(texto,{entities:ents,parse_mode:'HTML'});
+    await ctx.reply(msg);
+    await ctx.reply(texto,{entities:ents});
     return;
   }
 });
