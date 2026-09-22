@@ -61,14 +61,14 @@ module.exports = bot => bot.start(async ctx => {
 
     if (process.env.WEBAPP_URL) {
       try {
-        rows.push([await webAppButton('webapp', process.env.WEBAPP_URL)]);
+        rows.push([await webAppButton('webapp', process.env.WEBAPP_URL, { section: 'inicio' })]);
       } catch (e) {
         console.error('START: error botón WebApp:', e);
       }
     }
 
     try {
-      rows.push([await button('modelos', { style: 'danger' })]);
+      rows.push([await button('modelos', { section: 'inicio', style: 'danger' })]);
     } catch (e) {
       console.error('START: error botón modelos:', e);
       rows.push([{ text: '👑 Lista de Modelos 👑', callback_data: 'modelos' }]);
@@ -76,7 +76,7 @@ module.exports = bot => bot.start(async ctx => {
 
     if (process.env.CANAL_FREE_URL) {
       try {
-        rows.push([await urlButton('canal_free', process.env.CANAL_FREE_URL, { style: 'success' })]);
+        rows.push([await urlButton('canal_free', process.env.CANAL_FREE_URL, { section: 'inicio', style: 'success' })]);
       } catch (e) {
         console.error('START: error botón canal:', e);
       }
