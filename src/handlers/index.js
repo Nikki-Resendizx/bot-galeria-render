@@ -1,19 +1,17 @@
-module.exports = (bot) => {
-  const safe = (path) => {
-    try {
-      require(path)(bot);
-      console.log(`✅ ${path} cargado`);
-    } catch(e) {
-      console.log(`⚠️ Skip ${path}: ${e.message}`);
-    }
-  };
+const startHandler = require('./start');
+const adminHandler = require('./admin');
+const plantillasHandler = require('./plantillas');
+const modelosHandler = require('./modelos');
+const galeriaHandler = require('./galeria');
+const textHandler = require('./text');
 
-  safe('./start');
-  safe('./admin');
-  safe('./text');
-  safe('./galeria');
-  safe('./modelos');
-  safe('./plantillas');
-  
-  console.log("✅ Handlers V16 cargados v16");
+module.exports = (bot) => {
+  console.log("✅ Cargando handlers V16.1 Nube TG...");
+  startHandler(bot);
+  adminHandler(bot);
+  plantillasHandler(bot);
+  modelosHandler(bot);
+  galeriaHandler(bot);
+  textHandler(bot);
+  console.log("✅ Todos los handlers cargados");
 };
