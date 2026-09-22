@@ -15,8 +15,6 @@ bot.action('lista', async(ctx)=>{
   let snap = await getDocs(query(collection(db,"modelos"), orderBy("fecha","desc")));
   if(snap.empty){ await ctx.reply("⏳ Aún no hay modelos"); return; }
 
-  // === SECUENCIA NUEVA QUE PEDISTE ===
-  // Cada fila: [ AZUL | ROJO ]
   let keyboard=[];
   let row=[];
   let snapArray = [];
@@ -48,14 +46,14 @@ bot.action('lista', async(ctx)=>{
   keyboard.push([{
     text: canalConf.text || "CANAL OFICIAL",
     url: canalConf.url || CANAL_OFICIAL,
-    style: canalConf.colorStyle || "primary",
+    style: canalConf.color || "primary",
    ...(canalConf.premiumId? { icon_custom_emoji_id: canalConf.premiumId } : {})
   }]);
 
   keyboard.push([{
     text: galeriaConf.text || "ABRIR GALERÍA WEB",
     web_app: { url: WEBAPP_URL },
-    style: galeriaConf.colorStyle || "success",
+    style: galeriaConf.color || "success",
    ...(galeriaConf.premiumId? { icon_custom_emoji_id: galeriaConf.premiumId } : {})
   }]);
 
@@ -63,11 +61,11 @@ bot.action('lista', async(ctx)=>{
 
   if(c.galeria_media){
     try{
-      await ctx.replyWithPhoto(c.galeria_media, { caption:texto, caption_entities:entities, parse_mode:'HTML', reply_markup:{ inline_keyboard: keyboard } });
+      await ctx.replyWithPhoto(c.galeria_media, { caption:texto, caption_entities:entities, reply_markup:{ inline_keyboard: keyboard } });
       return;
-    }catch(e){ console.log(e.message); }
+    }catch(e){ console.log("Foto error", e.message); }
   }
-  await ctx.reply(texto, { entities, parse_mode:'HTML', reply_markup:{ inline_keyboard: keyboard } });
+  await ctx.reply(texto, { entities, reply_markup:{ inline_keyboard: keyboard } });
 });
 
 bot.action(/ver_(.*)/, async(ctx)=>{
@@ -84,21 +82,21 @@ bot.action(/ver_(.*)/, async(ctx)=>{
   let b=config.botones?.plantilla||{};
 
   let kb=[
-    [{ text: b.perfil_completo?.text||"VER PERFIL COMPLETO", web_app:{url:`${WEBAPP_URL}/perfil.html?id=${id}`}, style:"primary",...(b.perfil_completo?.premiumId?{icon_custom_emoji_id:b.perfil_completo.premiumId}:{}) }],
-    [{ text: b.bueno?.text||"Bueno", callback_data:`voto_bueno_${id}`, style:"success" }, { text: b.malo?.text||"Malo", callback_data:`voto_malo_${id}`, style:"danger" }],
-    [{ text: b.canal_free?.text||"CANAL FREE", url: m.canalFree||CANAL_OFICIAL }, { text: b.contactame?.text||"CONTACTAME", url: m.contacto||CANAL_OFICIAL }],
-    [{ text: b.volver?.text||"VOLVER", callback_data:"lista" }, { text: b.inicio?.text||"INICIO", callback_data:"inicio" }]
+    [{ text: b.perfil_completo?.text||"VER PERFIL COMPLETO", web_app:{url:`${WEBAPP_URL}/perfil.html?id=${id}`}, style: b.perfil_completo?.color||"primary",...(b.perfil_completo?.premiumId?{icon_custom_emoji_id:b.perfil_completo.premiumId}:{}) }],
+    [{ text: b.bueno?.text||"Bueno", callback_data:`voto_bueno_${id}`, style: b.bueno?.color||"success" }, { text: b.malo?.text||"Malo", callback_data:`voto_malo_${id}`, style: b.malo?.color||"danger" }],
+    [{ text: b.canal_free?.text||"CANAL FREE", url: m.canalFree||CANAL_OFICIAL, style: b.canal_free?.color||"primary" }, { text: b.contactame?.text||"CONTACTAME", url: m.contacto||CANAL_OFICIAL, style: b.contactame?.color||"primary" }],
+    [{ text: b.volver?.text||"VOLVER", callback_data:"lista", style:"primary" }, { text: b.inicio?.text||"INICIO", callback_data:"inicio", style:"primary" }]
   ];
 
   if(m.fotos&&m.fotos.length>0){
     try{
-      let mediaGroup=m.fotos.slice(0,10).map((f,i)=>({ type:'photo', media:f, caption: i===0?texto:undefined, caption_entities: i===0?entities:undefined, parse_mode:i===0?'HTML':undefined }));
+      let mediaGroup=m.fotos.slice(0,10).map((f,i)=>({ type:'photo', media:f, caption: i===0?texto:undefined, caption_entities: i===0?entities:undefined }));
       await ctx.replyWithMediaGroup(mediaGroup);
       await ctx.reply("👇", { reply_markup:{inline_keyboard:kb} });
       return;
-    }catch(e){}
+    }catch(e){ console.log(e.message); }
   }
-  await ctx.reply(texto, { entities, parse_mode:'HTML', reply_markup:{inline_keyboard:kb} });
+  await ctx.reply(texto, { entities, reply_markup:{inline_keyboard:kb} });
 });
 
 bot.action(/voto_(bueno|malo)_(.*)/, async(ctx)=>{
