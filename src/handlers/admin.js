@@ -96,7 +96,28 @@ function sectionKeyboard(section) {
     rows.push([b('📋 Lista', 'adm_admin_list')]);
   }
   if (section === 'botones') {
-    rows.push([b('📋 Lista', 'adm_button_list'), b('✏️ Configurar', 'adm_button_edit')]);
+    rows.push([b('👋 Bienvenida', 'adm_buttons_bienvenida', 'danger')]);
+    rows.push([b('🖼️ Galería', 'adm_buttons_galeria', 'primary')]);
+    rows.push([b('📝 Plantillas', 'adm_buttons_plantillas', 'danger')]);
+    rows.push([b('📋 Ver configuración', 'adm_button_list')]);
+  }
+  if (section === 'buttons_bienvenida') {
+    rows.push([b('🌐 WebApp', 'adm_btnedit:inicio.webapp'), b('👑 Lista de modelos', 'adm_btnedit:inicio.modelos')]);
+    rows.push([b('📢 Canal oficial', 'adm_btnedit:inicio.canal_oficial')]);
+    rows.push([b('⬅️ Volver', 'adm_botones')]);
+  }
+  if (section === 'buttons_galeria') {
+    rows.push([b('✨ Emoji para listado', 'adm_btnedit:galeria.emoji_listado'), b('🌐 WebApp', 'adm_btnedit:galeria.webapp')]);
+    rows.push([b('📢 Canal oficial', 'adm_btnedit:galeria.canal_oficial')]);
+    rows.push([b('↩️ Volver', 'adm_btnedit:galeria.volver'), b('🏠 Inicio', 'adm_btnedit:galeria.inicio')]);
+    rows.push([b('⬅️ Volver', 'adm_botones')]);
+  }
+  if (section === 'buttons_plantillas') {
+    rows.push([b('🌐 Perfil WebApp', 'adm_btnedit:plantilla.perfil_webapp')]);
+    rows.push([b('👍 Votos buenos', 'adm_btnedit:plantilla.votosbueno'), b('👎 Votos malos', 'adm_btnedit:plantilla.votosmalos')]);
+    rows.push([b('📢 Canal Free modelo', 'adm_btnedit:plantilla.canal_free'), b('📞 Contactar', 'adm_btnedit:plantilla.contactar')]);
+    rows.push([b('↩️ Volver', 'adm_btnedit:plantilla.volver'), b('🏠 Inicio', 'adm_btnedit:plantilla.inicio')]);
+    rows.push([b('⬅️ Volver', 'adm_botones')]);
   }
   if (section === 'stats') {
     rows.push([b('📊 Actualizar', 'adm_stats')]);
@@ -602,8 +623,8 @@ module.exports = bot => {
 
       if (action === 'button_edit') {
         const match = text.match(/^(\S+)\s+(#r|#p|#g)\s+([\s\S]+)$/i);
-        if (!match) return ctx.reply('❌ Formato: <code>clave #r 💎 TEXTO</code>', { parse_mode: 'HTML' });
-        const key = match[1];
+        if (!match) return ctx.reply('❌ Formato: <code>' + escapeHtml(forcedKey || 'clave') + ' #r 💎 TEXTO</code>', { parse_mode: 'HTML' });
+        const key = forcedKey || match[1];
         const style = { '#r': 'danger', '#p': 'primary', '#g': 'success' }[match[2].toLowerCase()];
         const label = match[3].trim();
         const data = { text: label, style };
