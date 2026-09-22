@@ -28,7 +28,8 @@ async function sendLista(ctx) {
   const keyboard = [];
   let row = [];
 
-  list.forEach((m, index) => {
+  for (let index = 0; index < list.length; index++) {
+    const m = list[index];
     const style = index % 2 === 0 ? 'primary' : 'danger';
 
     const btn = {
@@ -40,9 +41,11 @@ async function sendLista(ctx) {
     if (config.galeria_emoji_premium) {
       btn.icon_custom_emoji_id = String(config.galeria_emoji_premium);
     }
+
     try {
       const custom = await button('emoji_listado', { section: 'galeria' });
       if (custom.icon_custom_emoji_id) btn.icon_custom_emoji_id = custom.icon_custom_emoji_id;
+      if (custom.text && custom.text !== 'emoji_listado') btn.text = custom.text.replace('{perfil}', getModelName(m));
     } catch (_) {}
 
     row.push(btn);
@@ -51,7 +54,7 @@ async function sendLista(ctx) {
       keyboard.push(row);
       row = [];
     }
-  });
+  }
 
   if (row.length) keyboard.push(row);
 
