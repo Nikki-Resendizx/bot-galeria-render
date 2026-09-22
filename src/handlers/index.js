@@ -13,8 +13,7 @@ const STORAGE_TOPICS = {
   botones: '🧩 BOTONES',
   admins: '👑 ADMINS',
   usuarios: '👥 USUARIOS',
-  modelos: '💃 MODELOS',
-  otros: '📦 OTROS'
+  modelos: '💃 MODELOS'
 };
 
 function registerStorageLink(bot) {
