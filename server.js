@@ -11,12 +11,22 @@ app.get('/', (req, res) => {
 
 app.listen(PORT, async () => {
   console.log(`Web server en ${PORT}`);
-  try {
-    await bot.launch();
-    console.log('✅ Bot iniciado - botones 🔵🔴 + premium');
-  } catch (e) {
-    console.error('❌ Error bot.launch:', e.message);
-  }
+  (async () => {
+    try {
+      // FIX 409 - borra webhook viejo y espera
+      await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+      await new Promise(r => setTimeout(r, 2000));
+      await bot.launch({ 
+        dropPendingUpdates: true,
+        allowedUpdates: ['message','callback_query','my_chat_member'] 
+      });
+      console.log('✅ Bot iniciado - botones 🔵🔴 + premium');
+    } catch (e) {
+      console.error('❌ Error bot.launch:', e.message);
+      // reintento en 5s si hay 409
+      setTimeout(() => bot.launch({ dropPendingUpdates: true }), 5000);
+    }
+  })();
 });
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
