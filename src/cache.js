@@ -1,82 +1,38 @@
 const { doc, getDoc, setDoc } = require('firebase/firestore');
 const { db } = require('./firebase');
-
 let memoria = null;
-let ultimoFetch = 0;
-const CACHE_TTL = 1000 * 60 * 2; // 2 minutos
+let last = 0;
+const TTL = 2*60*1000;
 
-async function getConfig() {
-  const ahora = Date.now();
-  if (memoria && (ahora - ultimoFetch) < CACHE_TTL) {
-    return memoria;
-  }
-
-  try {
-    // 1. Config principal (bienvenida, galeria, admins)
-    const snapBot = await getDoc(doc(db, "config", "bot")).catch(()=>({ exists:()=>false }));
-    const dataBot = snapBot.exists() ? snapBot.data() : {};
-
-    // 2. Botones
-    const snapBotones = await getDoc(doc(db, "config", "botones")).catch(()=>({ exists:()=>false }));
-    const dataBotones = snapBotones.exists() ? snapBotones.data() : {};
-
-    // 3. Premium
-    const snapPremium = await getDoc(doc(db, "config", "premium")).catch(()=>({ exists:()=>false }));
-    const dataPremium = snapPremium.exists() ? snapPremium.data() : { activo: false };
-
+async function getConfig(){
+  if(memoria && Date.now()-last < TTL) return memoria;
+  try{
+    const [b,s,p] = await Promise.all([
+      getDoc(doc(db,"config","bot")).catch(()=>({exists:()=>false})),
+      getDoc(doc(db,"config","botones")).catch(()=>({exists:()=>false})),
+      getDoc(doc(db,"config","premium")).catch(()=>({exists:()=>false}))
+    ]);
+    const dBot = b.exists()? b.data():{};
+    const dBtn = s.exists()? s.data():{};
+    const dPre = p.exists()? p.data():{activo:true};
     memoria = {
-      // Defaults de bot
-      bienvenida_texto: dataBot.bienvenida_texto || "Hola {nombre} 💖 bienvenido",
-      bienvenida_media: dataBot.bienvenida_media || null,
-      galeria_texto: dataBot.galeria_texto || "🖼️ Galería Virtual",
-      galeria_media: dataBot.galeria_media || null,
-      plantilla_texto: dataBot.plantilla_texto || "{perfil} @{username} {edad}",
-      admins: dataBot.admins || ["8719034760"],
-      canal: dataBot.canal || process.env.CANAL_OFICIAL || null,
-      webapp: dataBot.webapp || process.env.WEBAPP_URL || null,
-      
-      // Estructurados
-      botones: dataBotones,
-      premium: dataPremium,
-      
-      // Raw para compatibilidad
-      ...dataBot
+      bienvenida_texto: dBot.bienvenida_texto || "💖 Hola {mencion} 💖\n\n✨ Bienvenid@ a {perfil} VERIFIED ✨\n\n👑 Contenido exclusivo",
+      bienvenida_media: dBot.bienvenida_media || null,
+      galeria_texto: dBot.galeria_texto || "🖼️ <b>GALERÍA VIRTUAL</b> 💎",
+      galeria_media: dBot.galeria_media || null,
+      plantilla_texto: dBot.plantilla_texto || "👸🏻 {perfil}\n💜 @{username} | {edad} años\n\n{descripcion}",
+      admins: dBot.admins || ["8719034760"],
+      botones: dBtn.bienvenida ? dBtn : { bienvenida:{galeria_virtual:{text:"💖 VIRTUAL GALERIA 💖",style:"primary"}, lista_modelos:{text:"👑 LISTA MODELOS 👑",style:"danger"}, canal_oficial:{text:"💎 CANAL OFICIAL 💎",style:"success"}}, galeria:{ver_contenido:{text:"🔥 VER CONTENIDO 🔥",style:"primary"}}, plantilla:{ver_mas:{text:"💖 VER MÁS 💖",style:"primary"}} },
+      premium: dPre,
+      ...dBot
     };
-
-    ultimoFetch = ahora;
+    last = Date.now();
     return memoria;
-
-  } catch (e) {
-    console.log("Error getConfig:", e.message);
-    // Devuelve memoria anterior o defaults para no romper bot
-    if (memoria) return memoria;
-    return {
-      bienvenida_texto: "Hola {nombre} 💖",
-      bienvenida_media: null,
-      galeria_texto: "Galería",
-      admins: ["8719034760"],
-      botones: {},
-      premium: { activo: false }
-    };
+  }catch(e){
+    console.log("cache err",e.message);
+    return memoria || {bienvenida_texto:"Hola {mencion}", admins:["8719034760"], botones:{}, premium:{activo:true}};
   }
 }
-
-async function saveConfig(tipo, data) {
-  try {
-    await setDoc(doc(db, "config", tipo), data, { merge: true });
-    // Invalidamos cache
-    memoria = null;
-    ultimoFetch = 0;
-    return true;
-  } catch(e) {
-    console.log("saveConfig error:", e.message);
-    return false;
-  }
-}
-
-function clearCache() {
-  memoria = null;
-  ultimoFetch = 0;
-}
-
+function clearCache(){ memoria=null; last=0; }
+async function saveConfig(t,d){ await setDoc(doc(db,"config",t),d,{merge:true}); clearCache(); }
 module.exports = { getConfig, saveConfig, clearCache };
