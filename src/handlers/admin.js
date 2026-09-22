@@ -2,13 +2,14 @@ const { Markup }=require('telegraf');
 const { isAdmin,escapeHtml }=require('../utils');
 const { getPlantillas,getModelos,getBotMedia,getUsers,getConfig,getStorage }=require('../config/db');
 
+function b(text,data,style='primary',icon){const x={text,style,...data};if(icon)x.icon_custom_emoji_id=icon;return x;}
 const panelKeyboard=()=>Markup.inlineKeyboard([
-  [Markup.button.callback('👋 BIENVENIDA','adm_bienvenida'),Markup.button.callback('🖼️ GALERÍA','adm_galeria')],
-  [Markup.button.callback('💃 MODELOS','adm_modelos'),Markup.button.callback('📝 PLANTILLAS','adm_plantillas')],
-  [Markup.button.callback('👥 USUARIOS','adm_usuarios'),Markup.button.callback('👑 ADMINS','adm_admins')],
-  [Markup.button.callback('🔘 BOTONES','adm_botones'),Markup.button.callback('📊 ESTADÍSTICAS','adm_stats')],
-  [Markup.button.callback('📦 STORAGE TELEGRAM','adm_storage')],
-  [Markup.button.callback('🔄 RECARGAR','adm_reload')]
+  [b('👋 BIENVENIDA',{callback_data:'adm_bienvenida'},'primary'),b('🖼️ GALERÍA',{callback_data:'adm_galeria'},'primary')],
+  [b('💃 MODELOS',{callback_data:'adm_modelos'},'success'),b('📝 PLANTILLAS',{callback_data:'adm_plantillas'},'primary')],
+  [b('👥 USUARIOS',{callback_data:'adm_usuarios'},'primary'),b('👑 ADMINS',{callback_data:'adm_admins'},'danger')],
+  [b('🔘 BOTONES',{callback_data:'adm_botones'},'primary'),b('📊 ESTADÍSTICAS',{callback_data:'adm_stats'},'success')],
+  [b('📦 STORAGE TELEGRAM',{callback_data:'adm_storage'},'primary')],
+  [b('🔄 RECARGAR',{callback_data:'adm_reload'},'primary')]
 ]);
 
 async function showPanel(ctx, edit=false){
