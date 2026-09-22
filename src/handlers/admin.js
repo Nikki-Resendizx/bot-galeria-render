@@ -19,10 +19,10 @@ function kb(rows) {
 }
 
 const panelKeyboard = () => kb([
-  [b('👋 BIENVENIDA', 'adm_bienvenida'), b('🖼️ GALERÍA', 'adm_galeria')],
-  [b('💃 MODELOS', 'adm_modelos'), b('📝 PLANTILLAS', 'adm_plantillas')],
-  [b('👥 USUARIOS', 'adm_usuarios'), b('👑 ADMINS', 'adm_admins')],
-  [b('🔘 BOTONES', 'adm_botones'), b('📊 ESTADÍSTICAS', 'adm_stats')],
+  [b('👋 BIENVENIDA', 'adm_bienvenida', 'danger'), b('📝 PLANTILLAS', 'adm_plantillas', 'danger')],
+  [b('🖼️ GALERÍA', 'adm_galeria', 'primary'), b('👸 MODELOS', 'adm_modelos', 'primary')],
+  [b('👑 ADMINS', 'adm_admins', 'success'), b('🧩 BOTONES', 'adm_botones', 'success')],
+  [b('👥 USUARIOS', 'adm_usuarios', 'primary'), b('📊 ESTADÍSTICAS', 'adm_stats', 'primary')],
   [b('📦 STORAGE TELEGRAM', 'adm_storage')],
   [b('🔄 RECARGAR', 'adm_reload')]
 ]);
@@ -304,7 +304,7 @@ module.exports = bot => {
     }
 
     if (a === 'adm_button_edit') {
-      return promptText(ctx, ctx.from.id, 'button_edit', '✏️ Escribe: <code>clave | texto | color | emoji_id</code>\nEjemplo: <code>bueno | 👍 BUENO | success | 123456789</code>\nEl emoji_id es opcional.');
+      return promptText(ctx, ctx.from.id, 'button_edit', '✏️ Escribe: <code>#r 💎 CANAL OFICIAL</code> o <code>#g 💎 CONTACTO</code>.\n\nFormato completo: <code>clave #r 💎 TEXTO</code>\n🔴 #r = rojo · 🔵 #p = azul · 🟢 #g = verde\n💎 Usa un emoji premium real; Telegram entrega su ID automáticamente.');
     }
 
     if (a === 'adm_stats') {
@@ -444,15 +444,17 @@ module.exports = bot => {
       }
 
       if (action === 'button_edit') {
-        const parts = text.split('|').map(x => x.trim());
-        if (parts.length < 3) return ctx.reply('❌ Formato: clave | texto | color | emoji_id');
-        const [key, label, style, emojiId] = parts;
-        if (!/^(primary|success|danger)$/i.test(style)) return ctx.reply('❌ Color inválido: primary, success o danger.');
-        const data = { text: label, style: style.toLowerCase() };
-        if (emojiId) data.icon_custom_emoji_id = emojiId;
+        const match = text.match(/^(\\S+)\\s+(#r|#p|#g)\\s+([\\s\\S]+)$/i);
+        if (!match) return ctx.reply('❌ Formato: <code>clave #r 💎 TEXTO</code>', { parse_mode: 'HTML' });
+        const key = match[1];
+        const style = { '#r': 'danger', '#p': 'primary', '#g': 'success' }[match[2].toLowerCase()];
+        const label = match[3].trim();
+        const data = { text: label, style };
+        const entity = (ctx.message.entities || []).find(e => e.type === 'custom_emoji');
+        if (entity?.custom_emoji_id) data.icon_custom_emoji_id = String(entity.custom_emoji_id);
         await saveButtonConfig(key, data);
         clearPending(ctx.from.id);
-        return ctx.reply('✅ Botón <code>' + escapeHtml(key) + '</code> actualizado.\n🎨 ' + style.toLowerCase() + '\n💎 ' + (emojiId ? 'emoji premium activo' : 'sin emoji personalizado'), { parse_mode: 'HTML' });
+        return ctx.reply('✅ Botón <code>' + escapeHtml(key) + '</code> actualizado.\n🎨 ' + style + '\n💎 ' + (data.icon_custom_emoji_id ? 'emoji premium detectado automáticamente' : 'sin emoji personalizado'), { parse_mode: 'HTML' });
       }
 
       return next();
