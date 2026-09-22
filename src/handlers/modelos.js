@@ -110,6 +110,17 @@ async function sendLista(ctx) {
 
   const markup = { reply_markup: { inline_keyboard: keyboard } };
 
+  // Telegram puede rechazar una keyboard si una cuenta/bot todavía no
+  // admite alguna propiedad avanzada (style o custom emoji). En ese caso
+  // no debemos dejar caer toda la lista: reintentamos con botones estándar.
+  const safeKeyboard = keyboard.map(row => row.map(btn => {
+    const safe = { text: String(btn.text || ''), callback_data: btn.callback_data };
+    if (btn.url) { delete safe.callback_data; safe.url = btn.url; }
+    if (btn.web_app) { delete safe.callback_data; safe.web_app = btn.web_app; }
+    return safe;
+  }));
+  const safeMarkup = { reply_markup: { inline_keyboard: safeKeyboard } };
+
   const media = config.galeria_media || config.galeria_media_file_id || config.galeria_media_url || '';
 
   if (media) {
@@ -120,14 +131,31 @@ async function sendLista(ctx) {
         ...markup
       });
     } catch (e) {
-      console.error('LISTA: error enviando foto de galería:', e.message || e);
+      console.error('LISTA: error enviando foto/keyboard avanzada:', e.message || e);
+      try {
+        return await ctx.replyWithPhoto(media, {
+          caption: texto,
+          parse_mode: 'HTML',
+          ...safeMarkup
+        });
+      } catch (fallbackError) {
+        console.error('LISTA: error enviando foto/keyboard estándar:', fallbackError.message || fallbackError);
+      }
     }
   }
 
-  return ctx.reply(texto, {
-    parse_mode: 'HTML',
-    ...markup
-  });
+  try {
+    return await ctx.reply(texto, {
+      parse_mode: 'HTML',
+      ...markup
+    });
+  } catch (e) {
+    console.error('LISTA: error enviando keyboard avanzada:', e.message || e);
+    return ctx.reply(texto, {
+      parse_mode: 'HTML',
+      ...safeMarkup
+    });
+  }
 }
 
 async function sendModelo(ctx, id) {
