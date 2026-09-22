@@ -192,6 +192,13 @@ module.exports = bot => {
     return showPanel(ctx);
   });
 
+  bot.command('cancel', async ctx => {
+    if (!await isAdmin(ctx.from.id)) return;
+    const hadPending = !!getPending(ctx.from.id);
+    clearPending(ctx.from.id);
+    return ctx.reply(hadPending ? '❌ Operación cancelada. No se guardó ningún cambio pendiente.' : 'ℹ️ No hay ninguna operación pendiente para cancelar.');
+  });
+
   bot.action(/^adm_(?!reload$).+/, async ctx => {
     if (!await isAdmin(ctx.from.id)) return ctx.answerCbQuery('Sin permiso');
     const a = ctx.callbackQuery.data;
@@ -621,7 +628,8 @@ module.exports = bot => {
         return ctx.reply('🗑️ ID <code>' + text + '</code> quitado de los administradores de Firebase.', { parse_mode: 'HTML' });
       }
 
-      if (action === 'button_edit') {
+      if (action === 'button_edit' || action.startsWith('button_edit:')) {
+        const forcedKey = action.startsWith('button_edit:') ? action.slice('button_edit:'.length) : '';
         const match = text.match(/^(\S+)\s+(#r|#p|#g)\s+([\s\S]+)$/i);
         if (!match) return ctx.reply('❌ Formato: <code>' + escapeHtml(forcedKey || 'clave') + ' #r 💎 TEXTO</code>', { parse_mode: 'HTML' });
         const key = forcedKey || match[1];
