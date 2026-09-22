@@ -174,8 +174,22 @@ async function sendModelo(ctx, id) {
   }
 
   const config = await getConfig();
-  const plantilla = config.plantilla_texto ||
+  let plantilla = config.plantilla_texto ||
     '👑 {perfil} 👑\n@{username}\n{edad} | {nacionalidad}\n\n{Lista_servicios}\n\n{descripcion}\n\n{Votos} votos | {porcentaje_buenos}% buenos';
+
+  // Si existe una plantilla activa, esta tiene prioridad y permite
+  // intercambiar el estilo sin tocar cada modelo.
+  if (config.plantilla_activa) {
+    try {
+      const { getPlantillas } = require('../config/db');
+      const plantillas = await getPlantillas();
+      if (plantillas[config.plantilla_activa]?.texto) {
+        plantilla = plantillas[config.plantilla_activa].texto;
+      }
+    } catch (e) {
+      console.error('MODELO: error cargando plantilla activa:', e.message || e);
+    }
+  }
 
   const texto = replaceVars(plantilla, ctx, model);
   const media = await getModelBotMedia(id);
