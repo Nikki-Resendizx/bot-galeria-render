@@ -126,7 +126,7 @@ function modelRows(models) {
 
 module.exports = bot => {
   bot.command('boton', async ctx => {
-    if (!await isAdmin(ctx.from.id)) return next();
+    if (!await isAdmin(ctx.from.id)) return;
 
     // Formato: /boton clave #r|#p|#g texto
     // Ejemplo: /boton canal_free #r 💎 CANAL OFICIAL
