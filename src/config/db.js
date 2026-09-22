@@ -6,7 +6,6 @@ async function getConfig() {
   const a = await botDoc.get();
   const b = await db.collection('config').doc('botones').get();
   const p = await db.collection('config').doc('premium').get();
-
   return Object.assign(
     {},
     a.exists ? a.data() : {},
@@ -21,10 +20,7 @@ async function saveConfig(data) {
 
 async function saveUser(id, info) {
   await db.collection('usuarios').doc(String(id)).set(
-    Object.assign({}, info, {
-      id: String(id),
-      actualizado: admin.firestore.FieldValue.serverTimestamp()
-    }),
+    Object.assign({}, info, { id: String(id), actualizado: admin.firestore.FieldValue.serverTimestamp() }),
     { merge: true }
   );
 }
@@ -41,9 +37,7 @@ async function setUserStatus(id, data) {
 async function getPlantillas() {
   const s = await db.collection('plantillas').get();
   const o = {};
-  s.forEach(d => {
-    o[d.id] = Object.assign({ id: d.id }, d.data());
-  });
+  s.forEach(d => { o[d.id] = Object.assign({ id: d.id }, d.data()); });
   return o;
 }
 
@@ -63,6 +57,15 @@ async function getModelo(id) {
 async function getModelos() {
   const s = await db.collection('modelos').get();
   return s.docs.map(d => Object.assign({ id: d.id }, d.data()));
+}
+
+async function deleteModelo(id) {
+  await db.collection('modelos').doc(String(id)).delete();
+  await db.collection('config').doc('storage').collection('modelos').doc(String(id)).delete().catch(() => {});
+}
+
+async function resetModeloVotes(id) {
+  await db.collection('modelos').doc(String(id)).set({ votosBueno: 0, votosMalo: 0 }, { merge: true });
 }
 
 async function voteModelo(id, type) {
@@ -99,10 +102,7 @@ async function saveBotMedia(key, fileId) {
 
 async function saveTemplateMedia(id, fileId) {
   await db.collection('plantillas').doc(String(id)).set(
-    {
-      media_file_id: fileId,
-      actualizado: admin.firestore.FieldValue.serverTimestamp()
-    },
+    { media_file_id: fileId, actualizado: admin.firestore.FieldValue.serverTimestamp() },
     { merge: true }
   );
 }
@@ -130,24 +130,13 @@ async function getModelBotMedia(modelId) {
 
 module.exports = {
   db,
-  getConfig,
-  saveConfig,
-  saveUser,
-  getUsers,
-  setUserStatus,
-  getPlantillas,
-  savePlantilla,
-  deletePlantilla,
-  getModelo,
-  getModelos,
-  voteModelo,
-  getBotMedia,
-  saveBotMedia,
-  getButtonConfig,
-  saveButtonConfig,
+  getConfig, saveConfig,
+  saveUser, getUsers, setUserStatus,
+  getPlantillas, savePlantilla, deletePlantilla,
+  getModelo, getModelos, deleteModelo, resetModeloVotes, voteModelo,
+  getBotMedia, saveBotMedia,
+  getButtonConfig, saveButtonConfig,
   saveTemplateMedia,
-  getStorage,
-  saveStorageIndex,
-  saveModelBotMedia,
-  getModelBotMedia
+  getStorage, saveStorageIndex,
+  saveModelBotMedia, getModelBotMedia
 };
