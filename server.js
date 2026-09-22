@@ -1,46 +1,51 @@
 require('dotenv').config();
 const express = require('express');
 const { bot } = require('./src/bot');
+const cors = require('cors');
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 
-app.get('/', (req, res) => {
-  res.send(`✅ Bot Galeria V16 PREMIUM Live - WebApp: ${process.env.WEBAPP_URL || 'https://galeria-verifiedmodels.pages.dev'}`);
-});
+app.get('/', (req,res)=> res.send(`✅ V16.1 PREMIUM - WebApp: ${process.env.WEBAPP_URL}`));
+app.get('/health', (req,res)=> res.json({ok:true, v:'16.1'}));
 
-app.get('/health', (req, res) => res.json({ status: 'ok', v: '16-premium', webapp: process.env.WEBAPP_URL, time: new Date().toISOString() }));
+app.post('/api/aviso', async (req,res)=>{
+  try{
+    const { tipo, modelo, usuario, comentario, voto } = req.body;
+    const canalId = process.env.CANAL_ID || process.env.CANAL_AVISO_ID; // pon tu ID ej: -1001234567890
+    let msg = '';
+    if(tipo === 'comentario'){
+      msg = `💬 <b>NUEVO COMENTARIO</b> 💬\n\n👸🏻 Modelo: <b>${modelo}</b>\n👤 Usuario: ${usuario}\n💭 Dice: ${comentario}\n\n🔗 <a href="${process.env.WEBAPP_URL}">Ver en WebApp</a>`;
+    }else if(tipo === 'voto'){
+      msg = `⭐ <b>NUEVO VOTO</b> ⭐\n\n👸🏻 Modelo: <b>${modelo}</b>\n👤 Usuario: ${usuario}\n⭐ Voto: ${voto}/5\n\n🔗 <a href="${process.env.WEBAPP_URL}">Ver en WebApp</a>`;
+    }
+    if(canalId && msg){
+      await bot.telegram.sendMessage(canalId, msg, {parse_mode:'HTML'});
+      console.log(`[AVISO] ${tipo} enviado a canal ${canalId}`);
+    }else{
+      console.log("[AVISO] Falta CANAL_ID en ENV");
+    }
+    res.json({ok:true});
+  }catch(e){
+    console.log("Error aviso", e.message);
+    res.json({ok:false, error:e.message});
+  }
+});
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-  console.log(`Web server en ${PORT}`);
-  console.log(`WebApp: ${process.env.WEBAPP_URL}`);
-  iniciarBot();
-});
+app.listen(PORT, ()=>{ console.log(`Web en ${PORT}`); iniciarBot(); });
 
-async function iniciarBot(intentos = 0) {
-  const MAX = 10;
-  try {
-    console.log(`[V16] Iniciando intento ${intentos+1}/${MAX}`);
-    try {
-      await bot.telegram.deleteWebhook({ drop_pending_updates: true });
-      console.log("[V16] Webhook borrado");
-    } catch(e) {}
-    const espera = 3000 + intentos*2000;
-    await new Promise(r => setTimeout(r, espera));
-    await bot.launch({ dropPendingUpdates: true, allowedUpdates: ['message','callback_query','my_chat_member'] });
-    console.log("✅ BOT V16 PREMIUM INICIADO - https://galeria-verifiedmodels.pages.dev");
-  } catch (e) {
-    console.log(`❌ ${e.message}`);
-    if (e.message.includes('409') && intentos < MAX) {
-      console.log(`🔄 Reintentando 409 en 5s...`);
-      setTimeout(() => iniciarBot(intentos+1), 5000);
-    } else if(intentos >= MAX) {
-      setTimeout(() => process.exit(1), 30000);
-    }
+async function iniciarBot(i=0){
+  try{
+    await bot.telegram.deleteWebhook({drop_pending_updates:true}).catch(()=>{});
+    await new Promise(r=>setTimeout(r,3000+i*2000));
+    await bot.launch({dropPendingUpdates:true});
+    console.log("✅ BOT V16.1 CON AVISOS INICIADO");
+  }catch(e){
+    if(e.message.includes('409') && i<10) setTimeout(()=>iniciarBot(i+1),5000);
+    else setTimeout(()=>process.exit(1),30000);
   }
 }
-
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
-process.on('unhandledRejection', r => console.log("Unhandled:", r));
+process.once('SIGINT',()=>bot.stop('SIGINT'));
+process.once('SIGTERM',()=>bot.stop('SIGTERM'));
