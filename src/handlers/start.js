@@ -1,5 +1,6 @@
 const { Markup } = require('telegraf');
-const { saveUser, getConfig, getBotMedia } = require('../config/db');
+const { saveUser, getUser, getConfig, getBotMedia } = require('../config/db');
+const { publishTextToStorage } = require('../storage');
 const { replaceVars } = require('../utils');
 const { webAppButton, urlButton, button } = require('../buttons');
 
@@ -9,11 +10,29 @@ module.exports = bot => bot.start(async ctx => {
   // /start debe responder aunque Firebase, una foto o una configuración opcional fallen.
   try {
     try {
+      const previous = await getUser(from.id);
       await saveUser(from.id, {
         username: from.username || '',
         first_name: from.first_name || '',
         last_name: from.last_name || ''
       });
+
+      // Aviso solo cuando el usuario es realmente nuevo.
+      if (!previous) {
+        try {
+          await publishTextToStorage(
+            ctx.telegram,
+            'usuarios',
+            '👤 NUEVO USUARIO\n' +
+            '🆔 ID: ' + String(from.id) + '\n' +
+            '👤 Nombre: ' + String([from.first_name, from.last_name].filter(Boolean).join(' ') || 'Sin nombre') + '\n' +
+            '🔗 Username: ' + (from.username ? '@' + from.username : 'Sin username'),
+            {}
+          );
+        } catch (storageError) {
+          console.error('START: aviso Storage usuarios:', storageError.message || storageError);
+        }
+      }
     } catch (e) {
       console.error('START: error guardando usuario:', e);
     }
