@@ -40,7 +40,7 @@ module.exports=bot=>{
     if(!id)return ctx.reply('Uso: /foto_modelo ID_MODELO\n\nDespués envía la foto.');
     const model=await getModelo(id);
     if(!model)return ctx.reply('❌ No encontré esa modelo en Firebase.');
-    return ctx.reply('📸 Ahora envía la foto con caption <code>/foto_modelo '+escapeHtml(id)+'</code>,{parse_mode:'HTML'});
+    return ctx.reply('📸 Ahora envía la foto con caption <code>/foto_modelo '+escapeHtml(id)+'</code>',{parse_mode:'HTML'});
   });
 
   bot.on('photo',async(ctx,next)=>{
