@@ -71,7 +71,7 @@ module.exports = bot => bot.start(async ctx => {
       rows.push([await button('modelos', { section: 'inicio', style: 'danger' })]);
     } catch (e) {
       console.error('START: error botón modelos:', e);
-      rows.push([{ text: '👑 Lista de Modelos 👑', callback_data: 'modelos' }]);
+      rows.push([{ text: '👑 Lista de Modelos 👑', callback_data: 'public_modelos' }]);
     }
 
     if (process.env.CANAL_FREE_URL) {
