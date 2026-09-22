@@ -1,27 +1,7 @@
 const { initializeApp, getApps, getApp } = require('firebase/app');
 const { getFirestore } = require('firebase/firestore');
-require('dotenv').config();
-
-const firebaseConfig = {
-  apiKey: process.env.FIREBASE_API_KEY,
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.FIREBASE_APP_ID,
-  measurementId: process.env.FIREBASE_MEASUREMENT_ID
-};
-
-// Evita "Firebase App already exists" en Render
-let app;
-if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
-  console.log("✅ Firebase inicializado");
-} else {
-  app = getApp();
-  console.log("♻️ Firebase reutilizado");
-}
-
+const { FIREBASE } = require('./config');
+let app = getApps().length ? getApp() : initializeApp(FIREBASE);
 const db = getFirestore(app);
-
+console.log("🔥 Firebase V16");
 module.exports = { db, app };
