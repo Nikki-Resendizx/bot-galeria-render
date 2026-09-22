@@ -19,6 +19,11 @@ async function saveConfig(data) {
   global.__verifiedmodelsConfigVersion = Date.now();
 }
 
+async function getUser(id) {
+  const s = await db.collection('usuarios').doc(String(id)).get();
+  return s.exists ? Object.assign({ id: s.id }, s.data()) : null;
+}
+
 async function saveUser(id, info) {
   await db.collection('usuarios').doc(String(id)).set(
     Object.assign({}, info, { id: String(id), actualizado: admin.firestore.FieldValue.serverTimestamp() }),
@@ -207,7 +212,7 @@ async function getModelBotMedia(modelId) {
 module.exports = {
   db,
   getConfig, saveConfig,
-  saveUser, getUsers, setUserStatus,
+  getUser, saveUser, getUsers, setUserStatus,
   getPlantillas, savePlantilla, deletePlantilla,
   getModelo, getModelos, deleteModelo, resetModeloVotes, voteModelo,
   getBotMedia, saveBotMedia,
