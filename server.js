@@ -1,20 +1,18 @@
-// src/server.js - Entry para Render
-const { bot } = require('./bot');
+// server.js - RAIZ - unico que usara Render
+require('dotenv').config();
+const { bot } = require('./src/bot');
 const express = require('express');
 
 const app = express();
-app.get('/', (req, res) => res.send('Bot Galeria Live ✅'));
+app.get('/', (req, res) => res.send('Bot Galeria Live v14'));
 app.get('/health', (req, res) => res.send('OK'));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Web server en ${PORT}`));
 
-// Iniciar bot
 bot.launch().then(() => {
-  console.log('✅ Bot iniciado - premium y botones de color activos');
+  console.log('✅ Bot iniciado - botones color + premium OK');
 }).catch(e => {
-  console.error('Error bot:', e);
+  console.error(e);
+  process.exit(1);
 });
-
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
