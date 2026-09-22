@@ -1,12 +1,9 @@
-const adminHandler = require('./admin');
-const textHandler = require('./text');
-const galeriaHandler = require('./galeria');
-
 module.exports = (bot) => {
-  // Inyectamos bot a admin para usarlo en callbacks
-  adminHandler(bot);
-  textHandler(bot);
-  galeriaHandler(bot);
-
-  console.log("✅ Handlers cargados v14");
+  require('./start')(bot);
+  require('./admin')(bot);
+  require('./text')(bot);
+  require('./galeria')(bot);
+  require('./modelos')(bot);
+  require('./plantillas')(bot);
+  console.log("✅ Handlers V16 cargados v16");
 };
