@@ -110,8 +110,23 @@ async function getButtonConfig() {
 }
 
 async function saveButtonConfig(key, data) {
-  await db.collection('config').doc('botones').set({
-    [String(key)]: Object.assign({}, data, { actualizado: new Date().toISOString() })
+  const rawKey = String(key);
+  const ref = db.collection('config').doc('botones');
+  if (rawKey.includes('.')) {
+    const [section, buttonKey] = rawKey.split('.', 2);
+    const snap = await ref.get();
+    const current = snap.exists ? (snap.data() || {}) : {};
+    const sectionData = current[section] && typeof current[section] === 'object' ? current[section] : {};
+    await ref.set({
+      [section]: {
+        ...sectionData,
+        [buttonKey]: Object.assign({}, data, { actualizado: new Date().toISOString() })
+      }
+    }, { merge: true });
+    return;
+  }
+  await ref.set({
+    [rawKey]: Object.assign({}, data, { actualizado: new Date().toISOString() })
   }, { merge: true });
 }
 
