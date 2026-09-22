@@ -54,7 +54,7 @@ async function showPanel(ctx, edit = false) {
     '💃 Modelos en Firebase: <b>' + m.length + '</b>\n' +
     '📝 Plantillas: <b>' + Object.keys(p).length + '</b>\n' +
     '👥 Usuarios: <b>' + users.length + '</b>\n' +
-    '📦 Temas Storage vinculados: <b>' + linked + '/6</b>\n\n' +
+    '📦 Temas Storage vinculados: <b>' + linked + '/7</b>\n\n' +
     '☁️ Firebase → datos y configuración\n' +
     '📸 Telegram → fotografías y archivos\n\n' +
     '<i>Selecciona una sección:</i>';
@@ -587,15 +587,24 @@ module.exports = bot => {
           entities,
           parse_mode: prepararTextoTelegram(converted.html, entities).parse_mode || null
         });
+        let storageOk = false;
+        let storageError = '';
         try {
           await publishTextToStorage(ctx.telegram, 'plantillas',
             '📝 PLANTILLA\nID: ' + id + '\nNombre: ' + nombre + '\n\n' + converted.html,
             { parse_mode: 'HTML' });
-        } catch (storageError) {
-          console.error('PLANTILLA: Storage:', storageError.message || storageError);
+          storageOk = true;
+        } catch (storageErrorObject) {
+          storageError = String(storageErrorObject.message || storageErrorObject);
+          console.error('PLANTILLA: Storage:', storageError);
         }
         clearPending(ctx.from.id);
-        return ctx.reply('✅ Plantilla <b>' + escapeHtml(nombre) + '</b> creada. ID: <code>' + id + '</code>', { parse_mode: 'HTML' });
+        return ctx.reply(
+          '✅ Plantilla <b>' + escapeHtml(nombre) + '</b> creada en Firebase. ID: <code>' + id + '</code>\n' +
+          '📦 Storage Telegram: ' + (storageOk ? '✅ publicada en 📝 PLANTILLAS' : '⚠️ no publicada: ' + escapeHtml(storageError || 'tema no vinculado')) +
+          '\n\nSi aparece ⚠️, entra al tema 📝 PLANTILLAS y ejecuta <code>/vincular plantillas</code>.',
+          { parse_mode: 'HTML' }
+        );
       }
 
       if (action === 'template_delete') {
