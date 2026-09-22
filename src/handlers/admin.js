@@ -32,6 +32,15 @@ async function showPanel(ctx, edit=false){
 }
 
 module.exports=bot=>{
+  bot.command('boton',async ctx=>{
+    if(!await isAdmin(ctx.from.id))return;
+    const a=ctx.message.text.replace(/^\\/boton\\s*/i,'').split('|').map(x=>x.trim());
+    if(a.length<3)return ctx.reply('🔘 Uso:\n/boton clave | texto | color | emoji_id\n\nColores: primary, success, danger\nEjemplo:\n/boton bueno | 👍 BUENO | success | 123456789');
+    const [key,text,style,emojiId]=a;
+    if(!/^(primary|success|danger)$/i.test(style))return ctx.reply('❌ Color inválido. Usa primary, success o danger.');
+    await saveButtonConfig(key,{text,style:style.toLowerCase(),...(emojiId?{icon_custom_emoji_id:emojiId}: {})});
+    return ctx.reply('✅ Botón <b>'+escapeHtml(key)+'</b> guardado.\\n🎨 Color: <b>'+style.toLowerCase()+'</b>\\n💎 Emoji premium: '+(emojiId?'✅':'❌'),{parse_mode:'HTML'});
+  });
   bot.command('admin',async ctx=>{if(!await isAdmin(ctx.from.id))return;return showPanel(ctx);});
 
   bot.action(/^adm_(?!reload$).+/,async ctx=>{
