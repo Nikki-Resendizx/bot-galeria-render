@@ -15,24 +15,16 @@ const STORAGE_TOPICS = {
   otros: '📦 OTROS'
 };
 
-function normalizeTopicName(name = '') {
-  return name
-    .normalize('NFD')
-    .replace(/[\\u0300-\\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, '')
-    .toLowerCase();
-}
-
 function registerStorageLink(bot) {
   bot.command('vincular', async (ctx) => {
     try {
-      if (!ctx.chat || (ctx.chat.type !== 'supergroup')) {
+      if (!ctx.chat || ctx.chat.type !== 'supergroup') {
         return ctx.reply('❌ Este comando solo se puede usar dentro del grupo de almacenamiento.');
       }
 
       const threadId = ctx.message && ctx.message.message_thread_id;
       if (!threadId) {
-        return ctx.reply('❌ Este mensaje no pertenece a un tema. Entra a uno de los temas y vuelve a enviar /vincular.');
+        return ctx.reply('❌ Este comando debe enviarse dentro de uno de los temas.');
       }
 
       const member = await ctx.telegram.getChatMember(ctx.chat.id, ctx.from.id);
@@ -40,21 +32,25 @@ function registerStorageLink(bot) {
         return ctx.reply('❌ Solo un administrador puede vincular los temas.');
       }
 
-      const topic = await ctx.telegram.getForumTopic(ctx.chat.id, threadId);
-      const normalized = normalizeTopicName(topic.name);
+      // Telegram no expone al bot una API para consultar el nombre de un tema
+      // a partir de message_thread_id. Por eso pedimos indicar qué sección se
+      // está vinculando y evitamos depender de getForumTopic().
+      const raw = (ctx.message.text || '').trim().split(/\\s+/)[1]?.toLowerCase();
+      const key = raw && raw.replace(/^\//, '');
 
-      const match = Object.entries(STORAGE_TOPICS).find(([, label]) =>
-        normalizeTopicName(label) === normalized
-      );
-
-      if (!match) {
+      if (!key || !STORAGE_TOPICS[key]) {
         return ctx.reply(
-          '⚠️ No reconozco este tema. Usa exactamente uno de estos nombres:\n\n' +
-          Object.values(STORAGE_TOPICS).join('\n')
+          '❌ Indica qué tema estás vinculando. Ejemplos:\n\n' +
+          '/vincular bienvenida\n' +
+          '/vincular galeria\n' +
+          '/vincular modelos\n' +
+          '/vincular plantillas\n' +
+          '/vincular botones\n' +
+          '/vincular otros'
         );
       }
 
-      const [key, label] = match;
+      const label = STORAGE_TOPICS[key];
 
       await db.collection('config').doc('storage').set({
         group_id: String(ctx.chat.id),
@@ -68,7 +64,7 @@ function registerStorageLink(bot) {
       }, { merge: true });
 
       return ctx.reply(
-        `✅ Tema vinculado correctamente.\\n\\n${label}\\n🆔 Topic ID: ${threadId}`
+        `✅ ${label} vinculado correctamente.\\n\\n🆔 Topic ID: ${threadId}`
       );
     } catch (error) {
       console.error('Error vinculando tema:', error);
