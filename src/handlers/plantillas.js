@@ -28,7 +28,7 @@ module.exports=bot=>{
   // Uso: /plantilla_usar ID
   bot.command('plantilla_usar',async ctx=>{
     if(!await isAdmin(ctx.from.id))return;
-    const id=ctx.message.text.replace(/^\\/plantilla_usar\\s*/i,'').trim();
+    const id=ctx.message.text.replace(/^\/plantilla_usar\s*/i,'').trim();
     if(!id)return ctx.reply('Uso: /plantilla_usar ID');
     const p=await getPlantillas();
     if(!p[id])return ctx.reply('❌ Plantilla inexistente. Usa /plantillas para ver los IDs.');
