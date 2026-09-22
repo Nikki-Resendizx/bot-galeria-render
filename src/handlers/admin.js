@@ -124,8 +124,8 @@ module.exports = bot => {
 
     // Formato: /boton clave #r|#p|#g texto
     // Ejemplo: /boton canal_free #r 💎 CANAL OFICIAL
-    const raw = String(ctx.message.text || '').replace(/^\\/boton\\s*/i, '').trim();
-    const match = raw.match(/^(\\S+)\\s+(#r|#p|#g)\\s+([\\s\\S]+)$/i);
+    const raw = String(ctx.message.text || '').replace(/^\/boton\s*/i, '').trim();
+    const match = raw.match(/^(\S+)\s+(#r|#p|#g)\s+([\s\S]+)$/i);
 
     if (!match) {
       return ctx.reply(
@@ -444,7 +444,7 @@ module.exports = bot => {
       }
 
       if (action === 'button_edit') {
-        const match = text.match(/^(\\S+)\\s+(#r|#p|#g)\\s+([\\s\\S]+)$/i);
+        const match = text.match(/^(\S+)\s+(#r|#p|#g)\s+([\s\S]+)$/i);
         if (!match) return ctx.reply('❌ Formato: <code>clave #r 💎 TEXTO</code>', { parse_mode: 'HTML' });
         const key = match[1];
         const style = { '#r': 'danger', '#p': 'primary', '#g': 'success' }[match[2].toLowerCase()];
