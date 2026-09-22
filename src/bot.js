@@ -5,7 +5,7 @@ if (!BOT_TOKEN) throw new Error("BOT_TOKEN no definido en .env");
 
 const bot = new Telegraf(BOT_TOKEN);
 
-// CARGAMOS LOS HANDLERS - ESTO ERA LO QUE FALTABA
+// CARGAMOS LOS HANDLERS
 const registerHandlers = require('./handlers');
 registerHandlers(bot);
 
