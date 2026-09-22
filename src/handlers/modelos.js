@@ -151,10 +151,18 @@ async function sendLista(ctx) {
     });
   } catch (e) {
     console.error('LISTA: error enviando keyboard avanzada:', e.message || e);
-    return ctx.reply(texto, {
-      parse_mode: 'HTML',
-      ...safeMarkup
-    });
+    try {
+      return await ctx.reply(texto, {
+        parse_mode: 'HTML',
+        ...safeMarkup
+      });
+    } catch (fallbackError) {
+      console.error('LISTA: error HTML en galería, enviando texto plano:', fallbackError.message || fallbackError);
+      // Último recurso: un texto plano siempre permite mostrar la lista
+      // aunque la configuración de formato HTML esté mal escrita.
+      const plainText = String(texto || '').replace(/<[^>]*>/g, '');
+      return ctx.reply(plainText, safeMarkup);
+    }
   }
 }
 
