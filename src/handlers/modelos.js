@@ -9,8 +9,20 @@ function getModelName(m) {
 }
 
 async function sendLista(ctx) {
-  const config = await getConfig();
-  const list = await getModelos();
+  let config = {};
+  try {
+    config = await getConfig();
+  } catch (e) {
+    console.error('LISTA: error cargando configuración:', e.message || e);
+  }
+
+  let list;
+  try {
+    list = await getModelos();
+  } catch (e) {
+    console.error('LISTA: error cargando modelos desde Firestore:', e.message || e);
+    return ctx.reply('❌ No pude leer los modelos desde la base de datos. Revisa Firestore/credenciales en Render.');
+  }
 
   if (!list.length) {
     return ctx.reply('⏳ Aún no hay modelos');
@@ -67,18 +79,24 @@ async function sendLista(ctx) {
   const canalUrl = canal.url || process.env.CANAL_FREE_URL || process.env.CANAL_OFICIAL_URL || '';
   const webUrl = process.env.WEBAPP_URL || '';
 
-  if (canalUrl) {
-    keyboard.push([await urlButton('canal_oficial', canalUrl, { section: 'galeria', style: canal.style || 'success' })]);
+  try {
+    if (canalUrl) {
+      keyboard.push([await urlButton('canal_oficial', canalUrl, { section: 'galeria', style: canal.style || 'success' })]);
+    }
+    if (webUrl) {
+      keyboard.push([await webAppButton('webapp', webUrl, { section: 'galeria', style: 'primary' })]);
+    }
+    keyboard.push([
+      await button('volver', { section: 'galeria', callback_data: 'public_modelos' }),
+      await button('inicio', { section: 'galeria', callback_data: 'inicio' })
+    ]);
+  } catch (e) {
+    console.error('LISTA: error creando botones inferiores:', e.message || e);
+    keyboard.push([
+      { text: '↩️ Volver', callback_data: 'public_modelos', style: 'primary' },
+      { text: '🏠 Inicio', callback_data: 'inicio', style: 'primary' }
+    ]);
   }
-
-  if (webUrl) {
-    keyboard.push([await webAppButton('webapp', webUrl, { section: 'galeria', style: 'primary' })]);
-  }
-
-  keyboard.push([
-    await button('volver', { section: 'galeria', callback_data: 'public_modelos' }),
-    await button('inicio', { section: 'galeria', callback_data: 'inicio' })
-  ]);
 
   const markup = { reply_markup: { inline_keyboard: keyboard } };
 
