@@ -29,6 +29,15 @@ async function saveUser(id, info) {
   );
 }
 
+async function getUsers() {
+  const s = await db.collection('usuarios').get();
+  return s.docs.map(d => Object.assign({ id: d.id }, d.data()));
+}
+
+async function setUserStatus(id, data) {
+  await db.collection('usuarios').doc(String(id)).set(data, { merge: true });
+}
+
 async function getPlantillas() {
   const s = await db.collection('plantillas').get();
   const o = {};
@@ -75,11 +84,34 @@ async function saveTemplateMedia(id, fileId) {
   );
 }
 
+async function getStorage() {
+  const s = await db.collection('config').doc('storage').get();
+  return s.exists ? (s.data() || {}) : {};
+}
+
+async function saveStorageIndex(key, data) {
+  await db.collection('config').doc('storage').set({
+    media: { [key]: Object.assign({}, data, { actualizado: new Date().toISOString() }) }
+  }, { merge: true });
+}
+
+async function saveModelBotMedia(modelId, data) {
+  await db.collection('config').doc('storage').collection('modelos').doc(String(modelId))
+    .set(Object.assign({}, data, { actualizado: new Date().toISOString() }), { merge: true });
+}
+
+async function getModelBotMedia(modelId) {
+  const s = await db.collection('config').doc('storage').collection('modelos').doc(String(modelId)).get();
+  return s.exists ? s.data() : null;
+}
+
 module.exports = {
   db,
   getConfig,
   saveConfig,
   saveUser,
+  getUsers,
+  setUserStatus,
   getPlantillas,
   savePlantilla,
   deletePlantilla,
@@ -87,5 +119,9 @@ module.exports = {
   getModelos,
   getBotMedia,
   saveBotMedia,
-  saveTemplateMedia
+  saveTemplateMedia,
+  getStorage,
+  saveStorageIndex,
+  saveModelBotMedia,
+  getModelBotMedia
 };
