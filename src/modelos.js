@@ -1,3 +1,2 @@
-module.exports = [
-  // aquí van tus modelos si los usas en el bot
-];
+const { getModelos } = require('./config/db');
+module.exports = { getModelos };
