@@ -20,8 +20,20 @@ module.exports=bot=>{
     const { textoConPremiumToHtml }=require('../utils');
     const converted=textoConPremiumToHtml(texto,entities);
     await savePlantilla(id,{nombre,texto:converted.html,entities,parse_mode:'HTML'});
-    try{await publishTextToStorage(ctx.telegram,'plantillas','📝 PLANTILLA\nID: '+id+'\nNombre: '+nombre+'\n\n'+converted.html,{parse_mode:'HTML'});}catch(e){console.error('PLANTILLA: Storage:',e.message||e);}
-    return ctx.reply('✅ Plantilla '+escapeHtml(nombre)+' guardada. ID: '+id,{parse_mode:'HTML'});
+    let storageOk=false, storageError='';
+    try{
+      await publishTextToStorage(ctx.telegram,'plantillas','📝 PLANTILLA\nID: '+id+'\nNombre: '+nombre+'\n\n'+converted.html,{parse_mode:'HTML'});
+      storageOk=true;
+    }catch(e){
+      storageError=String(e.message||e);
+      console.error('PLANTILLA: Storage:',storageError);
+    }
+    return ctx.reply(
+      '✅ Plantilla '+escapeHtml(nombre)+' guardada en Firebase. ID: <code>'+escapeHtml(id)+'</code>\n' +
+      '📦 Storage Telegram: '+(storageOk?'✅ publicada en 📝 PLANTILLAS':'⚠️ no publicada: '+escapeHtml(storageError||'tema no vinculado'))+
+      '\n\nSi aparece ⚠️, entra al tema 📝 PLANTILLAS y ejecuta <code>/vincular plantillas</code>.',
+      {parse_mode:'HTML'}
+    );
   });
 
   // Selecciona la plantilla activa del perfil del bot.
