@@ -1,18 +1,16 @@
 const { Telegraf } = require('telegraf');
 const { BOT_TOKEN } = require('./config');
 
-if (!BOT_TOKEN) throw new Error("BOT_TOKEN no definido");
+if (!BOT_TOKEN) throw new Error("BOT_TOKEN no definido en .env");
 
 const bot = new Telegraf(BOT_TOKEN);
 
-// CARGA DE HANDLERS - esto es lo que te falta
-require('./handlers/start')(bot);
-require('./handlers/admin')(bot);
-require('./handlers/callbacks')(bot);
-// etc
+// CARGAMOS LOS HANDLERS - ESTO ERA LO QUE FALTABA
+const registerHandlers = require('./handlers');
+registerHandlers(bot);
 
 bot.catch((err, ctx) => {
-  console.log(`Error ${ctx.updateType}`, err);
+  console.log(`Unhandled error while processing ${ctx.updateType}`, err);
 });
 
 module.exports = { bot };
