@@ -82,7 +82,26 @@ async function voteModelo(id, type) {
 
 async function getBotMedia() {
   const s = await botDoc.get();
-  return s.exists ? ((s.data() || {}).media || {}) : {};
+  if (!s.exists) return {};
+
+  const data = s.data() || {};
+  const media = data.media || {};
+
+  return {
+    ...media,
+    bienvenida:
+      media.bienvenida ||
+      data.bienvenida_media ||
+      data.bienvenida_media_file_id ||
+      data.bienvenida_media_url ||
+      '',
+    galeria:
+      media.galeria ||
+      data.galeria_media ||
+      data.galeria_media_file_id ||
+      data.galeria_media_url ||
+      ''
+  };
 }
 
 async function getButtonConfig() {
@@ -97,7 +116,26 @@ async function saveButtonConfig(key, data) {
 }
 
 async function saveBotMedia(key, fileId) {
-  await botDoc.set({ media: { [key]: fileId } }, { merge: true });
+  const normalizedKey = String(key);
+  const value = String(fileId);
+
+  const payload = {
+    media: { [normalizedKey]: value }
+  };
+
+  if (normalizedKey === 'bienvenida') {
+    payload.bienvenida_media = value;
+    payload.bienvenida_media_file_id = value;
+    payload.bienvenida_media_url = value;
+  }
+
+  if (normalizedKey === 'galeria') {
+    payload.galeria_media = value;
+    payload.galeria_media_file_id = value;
+    payload.galeria_media_url = value;
+  }
+
+  await botDoc.set(payload, { merge: true });
 }
 
 async function saveTemplateMedia(id, fileId) {
