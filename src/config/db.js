@@ -115,6 +115,24 @@ async function saveButtonConfig(key, data) {
   }, { merge: true });
 }
 
+async function deleteBotMedia(key) {
+  const normalizedKey = String(key);
+  const payload = { media: { [normalizedKey]: admin.firestore.FieldValue.delete() } };
+  if (normalizedKey === 'bienvenida') {
+    payload.bienvenida_media = admin.firestore.FieldValue.delete();
+    payload.bienvenida_media_file_id = admin.firestore.FieldValue.delete();
+    payload.bienvenida_media_url = admin.firestore.FieldValue.delete();
+  }
+  if (normalizedKey === 'galeria') {
+    payload.galeria_media = admin.firestore.FieldValue.delete();
+    payload.galeria_media_file_id = admin.firestore.FieldValue.delete();
+    payload.galeria_media_url = admin.firestore.FieldValue.delete();
+  }
+  await botDoc.set(payload, { merge: true });
+}
+async function deleteModelBotMedia(modelId) {
+  await db.collection('config').doc('storage').collection('modelos').doc(String(modelId)).delete();
+}
 async function saveBotMedia(key, fileId) {
   const normalizedKey = String(key);
   const value = String(fileId);
