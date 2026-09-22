@@ -8,6 +8,14 @@ function getModelName(m) {
   return m.perfil || m.nombre || m.username || 'Modelo';
 }
 
+// Telegram no permite fijar un ancho CSS a los botones inline.
+// Limitamos el texto y usamos una columna para que la fila nunca se expanda
+// más que el ancho disponible de la foto/caption en los clientes de Telegram.
+function getButtonModelName(m) {
+  const name = String(getModelName(m)).trim();
+  return name.length > 22 ? name.slice(0, 21).trimEnd() + '…' : name;
+}
+
 async function sendLista(ctx) {
   let config = {};
   try {
@@ -45,7 +53,7 @@ async function sendLista(ctx) {
     const style = index % 2 === 0 ? 'primary' : 'danger';
 
     const btn = {
-      text: getModelName(m),
+      text: getButtonModelName(m),
       callback_data: 'ver_' + m.id,
       style
     };
@@ -60,15 +68,10 @@ async function sendLista(ctx) {
       if (custom.text && custom.text !== 'emoji_listado') btn.text = custom.text.replace('{perfil}', getModelName(m));
     } catch (_) {}
 
-    row.push(btn);
-
-    if (row.length === 2) {
-      keyboard.push(row);
-      row = [];
-    }
+    // Una modelo por fila: evita que dos botones largos se salgan visualmente
+    // del ancho de la imagen en Telegram.
+    keyboard.push([btn]);
   }
-
-  if (row.length) keyboard.push(row);
 
   // Botones inferiores: conservamos la configuración actual y también
   // aceptamos la estructura antigua del bot de Vercel.
