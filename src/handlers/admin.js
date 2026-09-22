@@ -121,27 +121,38 @@ function modelRows(models) {
 module.exports = bot => {
   bot.command('boton', async ctx => {
     if (!await isAdmin(ctx.from.id)) return;
-    const a = ctx.message.text.replace(/^\/boton\s*/i, '').split('|').map(x => x.trim());
-    if (a.length < 3) {
+
+    // Formato: /boton clave #r|#p|#g texto
+    // Ejemplo: /boton canal_free #r 💎 CANAL OFICIAL
+    const raw = String(ctx.message.text || '').replace(/^\\/boton\\s*/i, '').trim();
+    const match = raw.match(/^(\\S+)\\s+(#r|#p|#g)\\s+([\\s\\S]+)$/i);
+
+    if (!match) {
       return ctx.reply(
-        '🔘 Uso: /boton clave | texto | color | emoji_id\n\n' +
-        'Colores: primary, success, danger\n' +
-        'Ejemplo: /boton bueno | 👍 BUENO | success | 123456789'
+        '🔘 <b>Configurar botón</b>\\n\\n' +
+        '<code>/boton canal_free #r 💎 CANAL OFICIAL</code>\\n\\n' +
+        '🔴 #r = rojo\\n🔵 #p = primario\\n🟢 #g = verde\\n\\n' +
+        '💎 Usa un emoji premium real en el mensaje; Telegram enviará su custom_emoji_id automáticamente.',
+        { parse_mode: 'HTML' }
       );
     }
-    const [key, text, style, emojiId] = a;
-    if (!/^(primary|success|danger)$/i.test(style)) {
-      return ctx.reply('❌ Color inválido. Usa primary, success o danger.');
-    }
-    await saveButtonConfig(key, {
-      text,
-      style: style.toLowerCase(),
-      ...(emojiId ? { icon_custom_emoji_id: emojiId } : {})
-    });
+
+    const key = match[1];
+    const style = { '#r': 'danger', '#p': 'primary', '#g': 'success' }[match[2].toLowerCase()];
+    const label = match[3].trim();
+
+    // El emoji premium NO se puede obtener del carácter visible 💎.
+    // Telegram lo entrega como entidad custom_emoji con custom_emoji_id.
+    const entity = (ctx.message.entities || []).find(e => e.type === 'custom_emoji');
+    const data = { text: label, style };
+    if (entity?.custom_emoji_id) data.icon_custom_emoji_id = String(entity.custom_emoji_id);
+
+    await saveButtonConfig(key, data);
+
     return ctx.reply(
-      '✅ Botón <b>' + escapeHtml(key) + '</b> guardado.\n' +
-      '🎨 Color: <b>' + style.toLowerCase() + '</b>\n' +
-      '💎 Emoji premium: ' + (emojiId ? '✅' : '❌'),
+      '✅ Botón <b>' + escapeHtml(key) + '</b> actualizado.\\n' +
+      '🎨 Color: <b>' + style + '</b>\\n' +
+      '💎 Emoji premium: ' + (data.icon_custom_emoji_id ? '✅ detectado automáticamente' : '❌ no detectado'),
       { parse_mode: 'HTML' }
     );
   });
