@@ -26,4 +26,20 @@ function textoConPremiumToHtml(text, entities = []) {
   return { html, ids: customs.map(e => String(e.custom_emoji_id)) };
 }
 function slugify(v){return String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)||('plantilla_'+Date.now());}
-module.exports={isAdmin,escapeHtml,replaceVars,textoConPremiumToHtml,slugify};
+module.exports={isAdmin,escapeHtml,replaceVars,textoConPremiumToHtml,detectarFormatoTelegram,prepararTextoTelegram,slugify};
+
+function detectarFormatoTelegram(text, entities = []) {
+  if (Array.isArray(entities) && entities.length) return 'entities';
+  const s = String(text || '');
+  if (/<(?:b|strong|i|em|u|s|strike|del|code|pre|a\b|tg-emoji\b)[^>]*>/i.test(s)) return 'HTML';
+  if (/(^|\\n)\\s*[-*+]\\s+|\\*\\*[^*]+\\*\\*|__[^_]+__|~~[^~]+~~|`[^`]+`|\\[[^\\]]+\\]\\([^)]*\\)/.test(s)) return 'MarkdownV2';
+  return 'plain';
+}
+function prepararTextoTelegram(text, entities = []) {
+  const source = String(text || '');
+  const formato = detectarFormatoTelegram(source, entities);
+  if (formato === 'entities') return { text: source, entities, parse_mode: undefined, formato };
+  if (formato === 'HTML') return { text: source, entities: undefined, parse_mode: 'HTML', formato };
+  if (formato === 'MarkdownV2') return { text: source, entities: undefined, parse_mode: 'MarkdownV2', formato };
+  return { text: source, entities: undefined, parse_mode: undefined, formato };
+}
