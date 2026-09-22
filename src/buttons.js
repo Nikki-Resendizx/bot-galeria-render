@@ -2,8 +2,8 @@ const { getButtonConfig } = require('./config/db');
 
 const DEFAULTS = {
   webapp: { text: '💎 Galería Virtual 💎', style: 'primary' },
-  modelos: { text: '👑 Lista de Modelos 👑', style: 'primary' },
-  canal_free: { text: '📢 Canal FREE 📢', style: 'primary' },
+  modelos: { text: '👑 Lista de Modelos 👑', style: 'danger' },
+  canal_free: { text: '📢 Canal OFICIAL 📢', style: 'success' },
   bueno: { text: '🟢 BUENO', style: 'success' },
   malo: { text: '🔴 MALO', style: 'danger' },
   contacto: { text: '📞 CONTACTO', style: 'primary' }
