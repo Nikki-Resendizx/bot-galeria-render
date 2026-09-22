@@ -40,6 +40,10 @@ async function sendLista(ctx) {
     if (config.galeria_emoji_premium) {
       btn.icon_custom_emoji_id = String(config.galeria_emoji_premium);
     }
+    try {
+      const custom = await button('emoji_listado', { section: 'galeria' });
+      if (custom.icon_custom_emoji_id) btn.icon_custom_emoji_id = custom.icon_custom_emoji_id;
+    } catch (_) {}
 
     row.push(btn);
 
@@ -61,29 +65,16 @@ async function sendLista(ctx) {
   const webUrl = process.env.WEBAPP_URL || '';
 
   if (canalUrl) {
-    keyboard.push([{
-      text: canal.text || 'CANAL OFICIAL',
-      url: canalUrl,
-      style: ['primary', 'success', 'danger'].includes(String(canal.color || '').toLowerCase())
-        ? String(canal.color).toLowerCase()
-        : 'success',
-      ...(canal.premiumId ? { icon_custom_emoji_id: String(canal.premiumId) } : {})
-    }]);
+    keyboard.push([await urlButton('canal_oficial', canalUrl, { section: 'galeria', style: canal.style || 'success' })]);
   }
 
   if (webUrl) {
-    keyboard.push([{
-      text: web.text || 'ABRIR GALERÍA WEB',
-      web_app: { url: webUrl },
-      style: ['primary', 'success', 'danger'].includes(String(web.color || '').toLowerCase())
-        ? String(web.color).toLowerCase()
-        : 'primary',
-      ...(web.premiumId ? { icon_custom_emoji_id: String(web.premiumId) } : {})
-    }]);
+    keyboard.push([await webAppButton('webapp', webUrl, { section: 'galeria', style: 'primary' })]);
   }
 
   keyboard.push([
-    { text: '🏠 Inicio', callback_data: 'inicio', style: 'primary' }
+    await button('volver', { section: 'galeria', callback_data: 'public_modelos' }),
+    await button('inicio', { section: 'galeria', callback_data: 'inicio' })
   ]);
 
   const markup = { reply_markup: { inline_keyboard: keyboard } };
@@ -124,22 +115,18 @@ async function sendModelo(ctx, id) {
   const fileId = media?.file_id;
 
   const buttons = [
-    [{
-      text: 'VER PERFIL COMPLETO',
-      web_app: { url: (process.env.WEBAPP_URL || '') + '/perfil.html?id=' + encodeURIComponent(id) },
-      style: 'primary'
-    }],
+    [await webAppButton('perfil_webapp', (process.env.WEBAPP_URL || '') + '/perfil.html?id=' + encodeURIComponent(id), { section: 'plantilla', style: 'primary' })],
     [
-      await button('bueno', { section: 'plantilla', callback_data: 'voto_bueno:' + id }),
-      await button('malo', { section: 'plantilla', callback_data: 'voto_malo:' + id })
+      await button('votosbueno', { section: 'plantilla', callback_data: 'voto_bueno:' + id, style: 'success' }),
+      await button('votosmalos', { section: 'plantilla', callback_data: 'voto_malo:' + id, style: 'danger' })
     ],
     [
-      await urlButton('canal_free', model.canalFree || process.env.CANAL_FREE_URL || '', { style: 'primary' }),
-      await urlButton('contacto', model.contacto || process.env.CANAL_FREE_URL || '', { style: 'primary' })
+      await urlButton('canal_free', model.canalFree || process.env.CANAL_FREE_URL || '', { section: 'plantilla', style: 'primary' }),
+      await urlButton('contactar', model.contacto || process.env.CANAL_FREE_URL || '', { section: 'plantilla', style: 'primary' })
     ],
     [
-      { text: '◀️ VOLVER', callback_data: 'public_modelos', style: 'primary' },
-      { text: '🏠 INICIO', callback_data: 'inicio', style: 'primary' }
+      await button('volver', { section: 'plantilla', callback_data: 'public_modelos', style: 'primary' }),
+      await button('inicio', { section: 'plantilla', callback_data: 'inicio', style: 'primary' })
     ]
   ];
 
