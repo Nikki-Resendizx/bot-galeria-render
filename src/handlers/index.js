@@ -5,13 +5,14 @@ const modelosHandler = require('./modelos');
 const galeriaHandler = require('./galeria');
 const textHandler = require('./text');
 
-module.exports = (bot) => {
-  console.log("✅ Cargando handlers V16.1 Nube TG...");
+function registerHandlers(bot) {
   startHandler(bot);
   adminHandler(bot);
   plantillasHandler(bot);
   modelosHandler(bot);
   galeriaHandler(bot);
   textHandler(bot);
-  console.log("✅ Todos los handlers cargados");
-};
+  console.log('✅ Todos los handlers cargados');
+}
+
+module.exports = { registerHandlers };
