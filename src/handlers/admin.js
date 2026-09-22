@@ -1,46 +1,6 @@
-const { Markup } = require('telegraf');
-const { getBienvenida, getPlantillas, getModelos, getBotones, getGaleria, loadDB } = require('../config/db');
-
-module.exports = (bot) => {
-  bot.command('admin', async (ctx) => {
-    if(String(ctx.from.id) !== String(process.env.ADMIN_ID)) return;
-
-    const db = loadDB();
-    const totalUsers = Object.keys(db.users || {}).length;
-    const totalModelos = (db.modelos || []).length;
-
-    const texto = `👸🏻 <b>PANEL ADMIN V16.1 PREMIUM</b> ✨
-
-☁️ <b>DB:</b> Nube Telegram (/tmp/database.json)
-👥 <b>Usuarias:</b> ${totalUsers}
-💃 <b>Modelos:</b> ${totalModelos}
-🌐 <b>WebApp:</b> ${process.env.WEBAPP_URL}
-
-Todo con emojis premium y guardado en TG, sin Firebase 😎`;
-
-    const botones = Markup.inlineKeyboard([
-      [Markup.button.callback('💌 Bienvenida', 'adm_bienvenida'), Markup.button.callback('📝 Plantillas', 'adm_plantillas')],
-      [Markup.button.callback('💃 Modelos (Fotos)', 'adm_modelos'), Markup.button.callback('🖼️ Galería', 'adm_galeria')],
-      [Markup.button.callback('🎨 Botones Premium', 'adm_botones'), Markup.button.callback('📊 Estadísticas', 'adm_stats')],
-      [Markup.button.callback('🌐 Abrir WebApp', 'adm_webapp'), Markup.button.callback('🔄 Recargar DB', 'adm_reload')]
-    ]);
-
-    return ctx.reply(texto, { parse_mode:'HTML', ...botones });
-  });
-
-  // CALLBACKS
-  bot.action('adm_bienvenida', (ctx) => {
-    ctx.answerCbQuery();
-    const b = getBienvenida() || 'No configurada';
-    ctx.reply(`💌 <b>BIENVENIDA ACTUAL:</b>\n\n${b}\n\nPara cambiar: <code>/bienvenida Tu nuevo texto con emojis 👸🏻✨</code>`, {parse_mode:'HTML'});
-  });
-
-  bot.action('adm_plantillas', (ctx) => {
-    ctx.answerCbQuery();
-    const p = getPlantillas();
-    const lista = Object.keys(p).length ? Object.keys(p).map(k=>`• ${k}`).join('\n') : 'Sin plantillas';
-    ctx.reply(`📝 <b>PLANTILLAS:</b>\n\n${lista}\n\nPara guardar: <code>/plantilla nombre | texto con emojis premium 🌸</code>`, {parse_mode:'HTML'});
-  });
-
-  bot.action('adm_modelos', (ctx) => {
-    ctx.answerCbQuery();
+const { Markup }=require('telegraf');const { isAdmin,escapeHtml }=require('../utils');const { getPlantillas,getModelos,getBotMedia }=require('../config/db');
+module.exports=bot=>{bot.command('admin',async ctx=>{if(!await isAdmin(ctx.from.id))return;const [p,m,media]=await Promise.all([getPlantillas(),getModelos(),getBotMedia()]);return ctx.reply('💎 <b>PANEL ADMIN VERIFIEDMODELS</b>\n\n💃 Modelos sincronizadas: <b>'+m.length+'</b>\n📝 Plantillas: <b>'+Object.keys(p).length+'</b>\n👋 Bienvenida: '+(media.bienvenida?'✅':'❌')+'\n🖼️ Galería: '+(media.galeria?'✅':'❌')+'\n\n☁️ Firebase = datos\n📸 Telegram = fotos del bot',{parse_mode:'HTML',...Markup.inlineKeyboard([[Markup.button.callback('📝 Plantillas 💎','adm_plantillas'),Markup.button.callback('💃 Modelos','adm_modelos')],[Markup.button.callback('📸 Media Telegram','adm_media'),Markup.button.webApp('🌐 WebApp',process.env.WEBAPP_URL||'')],[Markup.button.callback('🔄 Recargar','adm_reload')]])});});
+bot.action('adm_plantillas',async ctx=>{if(!await isAdmin(ctx.from.id))return ctx.answerCbQuery('Sin permiso');await ctx.answerCbQuery();const p=await getPlantillas();return ctx.reply('📝 <b>PLANTILLAS</b>\n\n'+(Object.keys(p).map(id=>'• '+id+' — '+escapeHtml(p[id].nombre||id)).join('\n')||'Sin plantillas'),{parse_mode:'HTML'});});
+bot.action('adm_modelos',async ctx=>{if(!await isAdmin(ctx.from.id))return ctx.answerCbQuery('Sin permiso');await ctx.answerCbQuery();const m=await getModelos();return ctx.reply('💃 <b>MODELOS</b>\n\n'+(m.map(x=>'• '+escapeHtml(x.perfil||x.username||x.id)+' — 👍 '+Number(x.votosBueno||0)+' 👎 '+Number(x.votosMalo||0)).join('\n')||'Sin modelos'),{parse_mode:'HTML'});});
+bot.action('adm_media',async ctx=>{if(!await isAdmin(ctx.from.id))return ctx.answerCbQuery('Sin permiso');await ctx.answerCbQuery();return ctx.reply('📸 <b>MEDIA TELEGRAM</b>\n\n👋 Foto bienvenida: envía una foto con caption /bienvenida\n🖼️ Foto galería: envía una foto con caption /galeria\n💎 Foto plantilla: /plantilla_foto ID',{parse_mode:'HTML'});});
+bot.action('adm_reload',async ctx=>{if(!await isAdmin(ctx.from.id))return ctx.answerCbQuery('Sin permiso');await ctx.answerCbQuery('Firebase listo');});};
