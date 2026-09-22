@@ -354,21 +354,27 @@ module.exports = bot => {
   });
 
 
-  bot.on('photo', async ctx => {
+  bot.on(['photo', 'document'], async ctx => {
     if (!await isAdmin(ctx.from.id)) return;
 
     const action = getPending(ctx.from.id);
     const caption = String(ctx.message.caption || '').trim();
-    const key = action === 'welcome_photo' || /^\/bienvenida(?:\s|$)/i.test(caption)
+
+    // Aceptamos los estados actuales y los nombres usados por la versión
+    // anterior para no romper configuraciones o flujos ya existentes.
+    const welcomeActions = new Set(['welcome_photo', 'foto_bienvenida']);
+    const galleryActions = new Set(['gallery_photo', 'foto_galeria']);
+
+    const key = welcomeActions.has(action) || /^\/bienvenida(?:\s|$)/i.test(caption)
       ? 'bienvenida'
-      : action === 'gallery_photo' || /^\/galeria(?:\s|$)/i.test(caption)
+      : galleryActions.has(action) || /^\/galeria(?:\s|$)/i.test(caption)
         ? 'galeria'
         : null;
 
     if (!key) return;
 
-    const fileId = ctx.message.photo?.at(-1)?.file_id;
-    if (!fileId) return ctx.reply('❌ No pude obtener el file_id de la fotografía.');
+    const fileId = ctx.message.photo?.at(-1)?.file_id || ctx.message.document?.file_id;
+    if (!fileId) return ctx.reply('❌ No pude obtener el file_id de la fotografía o documento.');
 
     try {
       await saveBotMedia(key, fileId);
@@ -408,10 +414,23 @@ module.exports = bot => {
     if (!text || text.startsWith('/')) return next();
 
     try {
-      if (action === 'welcome_text') {
-        await saveConfig({ bienvenida_texto: text });
+      if (action === 'welcome_text' || action === 'texto_bienvenida') {
+        const entities = ctx.message.entities || [];
+        const premiumIds = entities
+          .filter(e => e.type === 'custom_emoji' && e.custom_emoji_id)
+          .map(e => String(e.custom_emoji_id));
+
+        await saveConfig({
+          bienvenida_texto: text,
+          ...(premiumIds.length ? { bienvenida_emoji_premium: premiumIds[0] } : {})
+        });
         clearPending(ctx.from.id);
-        return ctx.reply('✅ Texto de bienvenida actualizado. Usa /admin para volver al panel.');
+
+        return ctx.reply(
+          '✅ Texto de bienvenida actualizado.' +
+          (premiumIds.length ? '\n💎 Emoji premium detectado automáticamente.' : '') +
+          '\n\nUsa /admin para volver al panel.'
+        );
       }
 
       if (action === 'template_create') {
