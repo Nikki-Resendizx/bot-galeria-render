@@ -451,8 +451,11 @@ module.exports = bot => {
           .filter(e => e.type === 'custom_emoji' && e.custom_emoji_id)
           .map(e => String(e.custom_emoji_id));
 
+        const { textoConPremiumToHtml } = require('../utils');
+        const converted = textoConPremiumToHtml(text, entities);
+
         await saveConfig({
-          bienvenida_texto: text,
+          bienvenida_texto: converted.html,
           ...(premiumIds.length ? { bienvenida_emoji_premium: premiumIds[0] } : {})
         });
         clearPending(ctx.from.id);
