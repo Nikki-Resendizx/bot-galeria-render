@@ -1,4 +1,4 @@
-const { getModelos }=require('../config/db');
+const { getModelos,voteModelo }=require('../config/db');
 const { escapeHtml }=require('../utils');
 const { Markup }=require('telegraf');
 const { button,urlButton }=require('../buttons');
@@ -19,4 +19,12 @@ async function send(ctx){
 module.exports=bot=>{
   bot.command('modelos',send);
   bot.action('public_modelos',async ctx=>{await ctx.answerCbQuery();await send(ctx);});
+  bot.action(/^voto_(bueno|malo):(.+)$/,async ctx=>{
+    try{
+      const type=ctx.match[1],id=ctx.match[2];
+      const n=await voteModelo(id,type);
+      await ctx.answerCbQuery(type==='bueno'?'👍 Voto registrado':'👎 Voto registrado');
+      return ctx.reply((type==='bueno'?'👍':'👎')+' Voto registrado. Total de este tipo: '+n);
+    }catch(e){console.error('Error voto bot:',e);return ctx.answerCbQuery('No se pudo registrar el voto',{show_alert:true});}
+  });
 };
