@@ -6,11 +6,16 @@ const { webAppButton, urlButton, button } = require('../buttons');
 module.exports = bot => bot.start(async ctx => {
   try {
     const from = ctx.from || {};
-    await saveUser(from.id, {
-      username: from.username || '',
-      first_name: from.first_name || '',
-      last_name: from.last_name || ''
-    });
+    // El registro del usuario nunca debe impedir que /start responda.
+    try {
+      await saveUser(from.id, {
+        username: from.username || '',
+        first_name: from.first_name || '',
+        last_name: from.last_name || ''
+      });
+    } catch (userError) {
+      console.error('Error registrando usuario en Firebase:', userError);
+    }
 
     const [c, m] = await Promise.all([getConfig(), getBotMedia()]);
     const t = replaceVars(
@@ -18,11 +23,13 @@ module.exports = bot => bot.start(async ctx => {
       ctx
     );
 
-    const rows = [[
-      await webAppButton('webapp', process.env.WEBAPP_URL || ''),
-      await button('modelos')
-    ]];
-    if (process.env.CANAL_FREE_URL) rows.push([await urlButton('canal_free', process.env.CANAL_FREE_URL)]);
+    const rows = [];
+    // No crear un botón WebApp inválido si WEBAPP_URL no está configurada.
+    if (process.env.WEBAPP_URL) {
+      rows.push([await webAppButton('webapp', process.env.WEBAPP_URL)]);
+    }
+    rows.push([await button('modelos', { style: 'danger' })]);
+    if (process.env.CANAL_FREE_URL) rows.push([await urlButton('canal_free', process.env.CANAL_FREE_URL, { style: 'success' })]);
     const keyboard = Markup.inlineKeyboard(rows);
 
     if (m.bienvenida) {
