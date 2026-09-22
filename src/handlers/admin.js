@@ -151,6 +151,8 @@ module.exports = bot => {
     // Telegram lo entrega como entidad custom_emoji con custom_emoji_id.
     const entity = (ctx.message.entities || []).find(e => e.type === 'custom_emoji');
     const data = { text: label, style };
+    // Se acepta "seccion.clave" para guardar el diseño por sección.
+    // Ejemplo: galeria.canal_oficial #r 💎 CANAL OFICIAL
     if (entity?.custom_emoji_id) data.icon_custom_emoji_id = String(entity.custom_emoji_id);
 
     await saveButtonConfig(key, data);
@@ -343,7 +345,7 @@ module.exports = bot => {
     }
 
     if (a === 'adm_button_edit') {
-      return promptText(ctx, ctx.from.id, 'button_edit', '✏️ Escribe: <code>#r 💎 CANAL OFICIAL</code> o <code>#g 💎 CONTACTO</code>.\n\nFormato completo: <code>clave #r 💎 TEXTO</code>\n🔴 #r = rojo · 🔵 #p = azul · 🟢 #g = verde\n💎 Usa un emoji premium real; Telegram entrega su ID automáticamente.');
+      return promptText(ctx, ctx.from.id, 'button_edit', '✏️ <b>Diseño de botones por sección</b>\n\nFormato: <code>seccion.clave #r 💎 TEXTO</code>\nEjemplos:\n<code>inicio.webapp #p 💎 GALERÍA VIRTUAL</code>\n<code>galeria.canal_oficial #g 📢 CANAL OFICIAL</code>\n<code>plantilla.bueno #g 👍 BUENO</code>\n\n🔴 #r = rojo · 🔵 #p = azul · 🟢 #g = verde\n💎 Usa un emoji premium real; Telegram entrega su ID automáticamente.');
     }
 
     if (a === 'adm_stats') {
