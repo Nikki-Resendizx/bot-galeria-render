@@ -70,6 +70,17 @@ async function getBotMedia() {
   return s.exists ? ((s.data() || {}).media || {}) : {};
 }
 
+async function getButtonConfig() {
+  const s = await db.collection('config').doc('botones').get();
+  return s.exists ? (s.data() || {}) : {};
+}
+
+async function saveButtonConfig(key, data) {
+  await db.collection('config').doc('botones').set({
+    [String(key)]: Object.assign({}, data, { actualizado: new Date().toISOString() })
+  }, { merge: true });
+}
+
 async function saveBotMedia(key, fileId) {
   await botDoc.set({ media: { [key]: fileId } }, { merge: true });
 }
@@ -119,6 +130,8 @@ module.exports = {
   getModelos,
   getBotMedia,
   saveBotMedia,
+  getButtonConfig,
+  saveButtonConfig,
   saveTemplateMedia,
   getStorage,
   saveStorageIndex,
