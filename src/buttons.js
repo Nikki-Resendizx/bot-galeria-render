@@ -21,6 +21,6 @@ async function button(key, extra = {}) {
   if (c.icon_custom_emoji_id) out.icon_custom_emoji_id = String(c.icon_custom_emoji_id);
   return out;
 }
-async function urlButton(key, url) { return button(key, { url }); }
+async function urlButton(key, url, extra = {}) { return button(key, { url, ...extra }); }
 async function webAppButton(key, url) { return button(key, { web_app: { url } }); }
 module.exports = { button, urlButton, webAppButton, DEFAULTS, normalizeStyle };
