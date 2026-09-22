@@ -5,8 +5,10 @@ const {
 const {
   getPlantillas, getModelos, getBotMedia, getUsers, getConfig, getStorage,
   getButtonConfig, saveButtonConfig, saveConfig,
-  deletePlantilla, deleteModelo, resetModeloVotes
+  deletePlantilla, deleteModelo, resetModeloVotes,
+  saveBotMedia
 } = require('../config/db');
+const { publishPhotoToStorage } = require('../storage');
 
 const pending = new Map();
 
@@ -349,6 +351,52 @@ module.exports = bot => {
     clearPending(ctx.from.id);
     await ctx.answerCbQuery('Recargado');
     return showPanel(ctx, true);
+  });
+
+
+  bot.on('photo', async ctx => {
+    if (!await isAdmin(ctx.from.id)) return;
+
+    const action = getPending(ctx.from.id);
+    const caption = String(ctx.message.caption || '').trim();
+    const key = action === 'welcome_photo' || /^\/bienvenida(?:\s|$)/i.test(caption)
+      ? 'bienvenida'
+      : action === 'gallery_photo' || /^\/galeria(?:\s|$)/i.test(caption)
+        ? 'galeria'
+        : null;
+
+    if (!key) return;
+
+    const fileId = ctx.message.photo?.at(-1)?.file_id;
+    if (!fileId) return ctx.reply('❌ No pude obtener el file_id de la fotografía.');
+
+    try {
+      await saveBotMedia(key, fileId);
+
+      let storageOk = false;
+      try {
+        await publishPhotoToStorage(
+          ctx.telegram,
+          key,
+          fileId,
+          caption.replace(/^\/(?:bienvenida|galeria)\s*/i, '').trim()
+        );
+        storageOk = true;
+      } catch (storageError) {
+        console.error('MEDIA: Storage no disponible para ' + key + ':', storageError.message || storageError);
+      }
+
+      clearPending(ctx.from.id);
+      return ctx.reply(
+        '✅ Foto de <b>' + (key === 'bienvenida' ? 'BIENVENIDA' : 'GALERÍA') + '</b> guardada.\n' +
+        '🆔 Telegram file_id: <code>' + escapeHtml(fileId) + '</code>\n' +
+        '📦 Storage Telegram: ' + (storageOk ? '✅ publicada' : '⚠️ guardada; revisa la vinculación del tema'),
+        { parse_mode: 'HTML' }
+      );
+    } catch (e) {
+      console.error('MEDIA: error guardando ' + key + ':', e);
+      return ctx.reply('❌ No pude guardar la fotografía: ' + escapeHtml(e.message || 'error'), { parse_mode: 'HTML' });
+    }
   });
 
   bot.on('text', async (ctx, next) => {
