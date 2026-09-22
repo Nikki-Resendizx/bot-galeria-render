@@ -7,9 +7,7 @@ const { clearCache } = require('../cache');
 let esperando = {};
 let temp = {};
 
-module.exports.esperando = esperando;
-
-module.exports = (bot) => {
+function adminHandler(bot) {
 
   bot.command('admin', async(ctx)=>{
     if(!isAdmin(ctx.from.id)) return;
@@ -35,7 +33,6 @@ module.exports = (bot) => {
   bot.action('panel_modelos', async(ctx)=>{ await ctx.answerCbQuery().catch(()=>{}); let snap=await getDocs(collection(db,"modelos")).catch(()=>({docs:[], size:0})); let kb=[]; let row=[]; snap.docs.slice(0,20).forEach(d=>{ row.push({text:d.data().perfil||d.id,callback_data:`mfoto_${d.id}`}); if(row.length===2){ kb.push(row); row=[]; } }); if(row.length) kb.push(row); kb.push([{text:"⬅️ Volver",callback_data:"back_admin"}]); await ctx.editMessageText(`👸🏻 MODELOS (${snap.size||snap.docs.length})`,{reply_markup:{inline_keyboard:kb}}); });
   bot.action('panel_admins', async(ctx)=>{ await ctx.answerCbQuery().catch(()=>{}); let c=await getConfig(); let kb=[]; (c.admins||[]).forEach(id=>{ kb.push([{text:`👑 ${id}`,callback_data:"noop"},{text:"🗑️",callback_data:`admin_del_${id}`} ]); }); kb.push([{text:"➕ Añadir Admin",callback_data:"admin_add"}]); kb.push([{text:"⬅️ Volver",callback_data:"back_admin"}]); await ctx.editMessageText("👑 ADMINS",{reply_markup:{inline_keyboard:kb}}); });
 
-  // todos los edit
   bot.action('edit_bienvenida_foto', async(ctx)=>{ await ctx.answerCbQuery().catch(()=>{}); esperando[String(ctx.from.id)]='foto_bienvenida'; await ctx.reply("📸 Manda la foto"); });
   bot.action('edit_bienvenida_texto', async(ctx)=>{ await ctx.answerCbQuery().catch(()=>{}); esperando[String(ctx.from.id)]='texto_bienvenida'; await ctx.reply("📝 Texto bienvenida usa {nombre} {usuario}"); });
   bot.action('edit_galeria_foto', async(ctx)=>{ await ctx.answerCbQuery().catch(()=>{}); esperando[String(ctx.from.id)]='foto_galeria'; await ctx.reply("📸 Foto galeria"); });
@@ -46,4 +43,8 @@ module.exports = (bot) => {
   bot.action('back_admin', async(ctx)=>{ try{ await ctx.answerCbQuery().catch(()=>{}); await ctx.deleteMessage().catch(()=>{}); }catch(e){} await bot.telegram.sendMessage(ctx.from.id,`👑 <b>PANEL ADMIN V14</b> 👑`,{parse_mode:'HTML',reply_markup:{inline_keyboard:[[{text:"👋🏻 BIENVENIDA",callback_data:"panel_bienvenida"},{text:"📝 PLANTILLAS",callback_data:"panel_plantillas"}],[{text:"🖼️ GALERIA",callback_data:"panel_galeria"},{text:"👸🏻 MODELOS",callback_data:"panel_modelos"}],[{text:"👑 ADMINS",callback_data:"panel_admins"},{text:"🧩 BOTONES",callback_data:"panel_botones"}]]}}); });
   bot.action('preview_start', async(ctx)=>{ await ctx.answerCbQuery().catch(()=>{}); let c=await getConfig(); let texto=(c.bienvenida_texto||"Hola {nombre}").replace(/{nombre}/g, ctx.from.first_name).replace(/{usuario}/g, ctx.from.username||""); if(c.bienvenida_media){ try{ await ctx.replyWithPhoto(c.bienvenida_media,{caption:texto,parse_mode:'HTML'}); return; }catch(e){} } await ctx.reply(texto,{parse_mode:'HTML'}); });
   bot.action('noop', async(ctx)=>{ await ctx.answerCbQuery().catch(()=>{}); });
-};
+}
+
+adminHandler.esperando = esperando;
+adminHandler.temp = temp;
+module.exports = adminHandler;
