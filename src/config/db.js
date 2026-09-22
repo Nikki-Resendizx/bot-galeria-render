@@ -65,6 +65,18 @@ async function getModelos() {
   return s.docs.map(d => Object.assign({ id: d.id }, d.data()));
 }
 
+async function voteModelo(id, type) {
+  const ref = db.collection('modelos').doc(String(id));
+  return db.runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) throw new Error('Modelo no encontrada');
+    const field = type === 'bueno' ? 'votosBueno' : 'votosMalo';
+    const current = Number(snap.get(field) || 0);
+    tx.update(ref, { [field]: current + 1 });
+    return current + 1;
+  });
+}
+
 async function getBotMedia() {
   const s = await botDoc.get();
   return s.exists ? ((s.data() || {}).media || {}) : {};
@@ -128,6 +140,7 @@ module.exports = {
   deletePlantilla,
   getModelo,
   getModelos,
+  voteModelo,
   getBotMedia,
   saveBotMedia,
   getButtonConfig,
