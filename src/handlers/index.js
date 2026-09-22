@@ -1,7 +1,7 @@
-// src/handlers/index.js
+// src/handlers/index.js - CORRECTO v14
 module.exports = (bot) => {
-  require('./text');
-  require('./galeria');
-  require('./admin');
+  require('./text')(bot);
+  require('./galeria')(bot);
+  require('./admin')(bot);
   console.log('✅ Handlers cargados: text, galeria, admin');
 };
