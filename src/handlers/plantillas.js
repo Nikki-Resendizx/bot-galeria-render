@@ -43,20 +43,21 @@ module.exports=bot=>{
     return ctx.reply('📸 Ahora envía la foto con caption <code>/foto_modelo '+escapeHtml(id)+'</code>',{parse_mode:'HTML'});
   });
 
-  bot.on('photo',async(ctx,next)=>{
+  bot.on(['photo','document'],async(ctx,next)=>{
     if(!await isAdmin(ctx.from.id))return next();
     const p=ctx.message.photo?.at(-1),c=String(ctx.message.caption||'').trim();
-    if(!p)return next();
+    const fileId=p?.file_id || ctx.message.document?.file_id;
+    if(!fileId)return next();
 
     try{
       if(c==='/bienvenida'){
-        const r=await publishPhotoToStorage(ctx.telegram,'bienvenida',p.file_id,'👋 BIENVENIDA');
+        const r=await publishPhotoToStorage(ctx.telegram,'bienvenida',fileId,'👋 BIENVENIDA');
         await saveBotMedia('bienvenida',r.fileId);
         return ctx.reply('✅ Bienvenida guardada en 📦 Telegram Storage.');
       }
 
       if(c==='/galeria'){
-        const r=await publishPhotoToStorage(ctx.telegram,'galeria',p.file_id,'🖼️ GALERÍA');
+        const r=await publishPhotoToStorage(ctx.telegram,'galeria',fileId,'🖼️ GALERÍA');
         await saveBotMedia('galeria',r.fileId);
         return ctx.reply('✅ Galería guardada en 📦 Telegram Storage.');
       }
@@ -65,7 +66,7 @@ module.exports=bot=>{
       if(x){
         const id=slugify(x[1]),q=await getPlantillas();
         if(!q[id])return ctx.reply('❌ Plantilla inexistente.');
-        const r=await publishPhotoToStorage(ctx.telegram,'plantillas',p.file_id,'📝 PLANTILLA: '+id);
+        const r=await publishPhotoToStorage(ctx.telegram,'plantillas',fileId,'📝 PLANTILLA: '+id);
         await saveTemplateMedia(id,r.fileId);
         return ctx.reply('✅ Foto de plantilla guardada en 📦 Telegram Storage.');
       }
@@ -75,7 +76,7 @@ module.exports=bot=>{
         const id=y[1].trim();
         const model=await getModelo(id);
         if(!model)return ctx.reply('❌ Modelo inexistente en Firebase.');
-        const r=await publishPhotoToStorage(ctx.telegram,'modelos',p.file_id,'💃 MODELO ID: '+id);
+        const r=await publishPhotoToStorage(ctx.telegram,'modelos',fileId,'💃 MODELO ID: '+id);
         await saveModelBotMedia(id,{file_id:r.fileId,message_id:r.message.message_id,message_thread_id:r.message.message_thread_id});
         return ctx.reply('✅ Foto del bot guardada para '+escapeHtml(model.perfil||model.username||id)+' en 📦 Telegram Storage.',{parse_mode:'HTML'});
       }
