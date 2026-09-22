@@ -1,14 +1,16 @@
 const { Telegraf } = require('telegraf');
-const token = process.env.BOT_TOKEN;
-if (!token) throw new Error("Falta BOT_TOKEN en ENV");
-const bot = new Telegraf(token);
 
-// Carga handlers
-try {
-  require('./handlers')(bot);
-  console.log("✅ Handlers V16 cargados");
-} catch(e) {
-  console.error("❌ Error handlers:", e.message);
+if(!process.env.BOT_TOKEN){
+  console.error("❌ FALTA BOT_TOKEN");
+  process.exit(1);
 }
+
+const bot = new Telegraf(process.env.BOT_TOKEN);
+
+bot.catch((err, ctx) => {
+  console.log(`❌ Error para ${ctx.updateType}:`, err.message);
+});
+
+require('./handlers')(bot);
 
 module.exports = { bot };
