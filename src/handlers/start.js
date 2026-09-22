@@ -1,6 +1,6 @@
 const { Markup } = require('telegraf');
 const { saveUser, getConfig, getBotMedia } = require('../config/db');
-const { replaceVars } = require('../utils');
+const { replaceVars, textoConPremiumToHtml } = require('../utils');
 const { webAppButton, urlButton, button } = require('../buttons');
 
 module.exports = bot => bot.start(async ctx => {
@@ -39,6 +39,17 @@ module.exports = bot => bot.start(async ctx => {
     let text = template;
     try {
       text = replaceVars(template, ctx);
+      // Si el texto fue guardado desde Telegram con un emoji Premium,
+      // lo reconstruimos como tg-emoji para que Telegram lo renderice.
+      if (config.bienvenida_emoji_premium && !text.includes('<tg-emoji')) {
+        const marker = '💎';
+        if (text.includes(marker)) {
+          text = text.replace(
+            marker,
+            '<tg-emoji emoji-id="' + String(config.bienvenida_emoji_premium) + '">' + marker + '</tg-emoji>'
+          );
+        }
+      }
     } catch (e) {
       console.error('START: error reemplazando variables:', e);
       text = template;
