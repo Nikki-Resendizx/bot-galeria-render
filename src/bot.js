@@ -1,16 +1,17 @@
 const { Telegraf } = require('telegraf');
 
-if(!process.env.BOT_TOKEN){
-  console.error("❌ FALTA BOT_TOKEN");
-  process.exit(1);
+function createBot(){
+  const bot = new Telegraf(process.env.BOT_TOKEN);
+  
+  // Cargar todos los handlers
+  require('./handlers')(bot);
+  
+  // Manejo de errores
+  bot.catch((err, ctx) => {
+    console.error(`Error en ${ctx.updateType}`, err);
+  });
+
+  return bot;
 }
 
-const bot = new Telegraf(process.env.BOT_TOKEN);
-
-bot.catch((err, ctx) => {
-  console.log(`❌ Error para ${ctx.updateType}:`, err.message);
-});
-
-require('./handlers')(bot);
-
-module.exports = { bot };
+module.exports = { createBot };
