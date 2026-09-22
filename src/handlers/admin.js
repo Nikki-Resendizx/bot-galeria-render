@@ -34,7 +34,7 @@ async function showPanel(ctx, edit=false){
 module.exports=bot=>{
   bot.command('boton',async ctx=>{
     if(!await isAdmin(ctx.from.id))return;
-    const a=ctx.message.text.replace(/^\\/boton\\s*/i,'').split('|').map(x=>x.trim());
+    const a=ctx.message.text.replace(/^\/boton\s*/i,'').split('|').map(x=>x.trim());
     if(a.length<3)return ctx.reply('🔘 Uso:\n/boton clave | texto | color | emoji_id\n\nColores: primary, success, danger\nEjemplo:\n/boton bueno | 👍 BUENO | success | 123456789');
     const [key,text,style,emojiId]=a;
     if(!/^(primary|success|danger)$/i.test(style))return ctx.reply('❌ Color inválido. Usa primary, success o danger.');
@@ -77,7 +77,9 @@ module.exports=bot=>{
       return ctx.reply('👑 <b>ADMINS</b>\n\n'+(all.map(id=>'• <code>'+id+'</code>').join('\n')||'No hay admins configurados')+'\n\nPara agregar administradores usaremos la configuración segura del bot.',{parse_mode:'HTML'});
     }
     if(a==='adm_botones'){
-      return ctx.reply('🔘 <b>BOTONES</b>\n\nLa configuración de textos/enlaces de botones se mantendrá en Firebase.\n\n⚠️ Telegram no permite cambiar libremente el color real de un botón inline; sí podemos cambiar texto, emoji, enlace y disposición.',{parse_mode:'HTML'});
+      const bc=await getButtonConfig();
+      const keys=Object.keys(bc);
+      return ctx.reply('🔘 <b>BOTONES</b>\n\n🎨 Colores disponibles: <b>primary</b> 🔵 · <b>success</b> 🟢 · <b>danger</b> 🔴\n💎 Custom emoji: disponible mediante <code>icon_custom_emoji_id</code>.\n\n'+(keys.length?keys.map(k=>'• <code>'+escapeHtml(k)+'</code> → '+escapeHtml(bc[k].text||'')+' ['+escapeHtml(bc[k].style||'primary')+']').join('\n'):'No hay botones personalizados guardados.')+'\n\n<b>Configurar:</b>\n<code>/boton clave | texto | color | emoji_id</code>',{parse_mode:'HTML'});
     }
     if(a==='adm_stats'){
       const [m,u]=await Promise.all([getModelos(),getUsers()]);
