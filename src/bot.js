@@ -1,18 +1,17 @@
 require('dotenv').config();
 const { Telegraf } = require('telegraf');
+const { registerHandlers } = require('./handlers');
+
+if (!process.env.BOT_TOKEN) {
+  throw new Error('Falta BOT_TOKEN en las variables de entorno');
+}
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-// Cargar panel admin + todos los handlers V16.1
-try{
-  require('./handlers')(bot);
-  console.log("✅ Handlers admin + modelos cargados - Nube TG");
-}catch(e){
-  console.log("Error handlers:", e.message);
-}
+registerHandlers(bot);
 
 bot.catch((err, ctx) => {
-  console.error(`Error en ${ctx.updateType}:`, err.message);
+  console.error(`Error en update ${ctx.updateType}:`, err);
 });
 
 module.exports = { bot };
