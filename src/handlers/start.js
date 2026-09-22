@@ -4,45 +4,105 @@ const { replaceVars } = require('../utils');
 const { webAppButton, urlButton, button } = require('../buttons');
 
 module.exports = bot => bot.start(async ctx => {
+  const from = ctx.from || {};
+
+  // /start debe responder aunque Firebase, una foto o una configuración opcional fallen.
   try {
-    const from = ctx.from || {};
-    // El registro del usuario nunca debe impedir que /start responda.
     try {
       await saveUser(from.id, {
         username: from.username || '',
         first_name: from.first_name || '',
         last_name: from.last_name || ''
       });
-    } catch (userError) {
-      console.error('Error registrando usuario en Firebase:', userError);
+    } catch (e) {
+      console.error('START: error guardando usuario:', e);
     }
 
-    const [c, m] = await Promise.all([getConfig(), getBotMedia()]);
-    const t = replaceVars(
-      c.bienvenida_texto || '👋 ¡Hola {mencion}! 💎\n\nBienvenid@ a VerifiedModels ✨',
-      ctx
-    );
+    let config = {};
+    let media = {};
 
+    try {
+      config = await getConfig();
+    } catch (e) {
+      console.error('START: error leyendo configuración:', e);
+    }
+
+    try {
+      media = await getBotMedia();
+    } catch (e) {
+      console.error('START: error leyendo media:', e);
+    }
+
+    const template = config.bienvenida_texto ||
+      '👋 ¡Hola {mencion}! 💎\n\nBienvenid@ a VerifiedModels ✨';
+
+    let text = template;
+    try {
+      text = replaceVars(template, ctx);
+    } catch (e) {
+      console.error('START: error reemplazando variables:', e);
+      text = template;
+    }
+
+    // Construimos el teclado de forma independiente para que un botón mal configurado
+    // nunca impida enviar la bienvenida.
     const rows = [];
-    // No crear un botón WebApp inválido si WEBAPP_URL no está configurada.
-    if (process.env.WEBAPP_URL) {
-      rows.push([await webAppButton('webapp', process.env.WEBAPP_URL)]);
-    }
-    rows.push([await button('modelos', { style: 'danger' })]);
-    if (process.env.CANAL_FREE_URL) rows.push([await urlButton('canal_free', process.env.CANAL_FREE_URL, { style: 'success' })]);
-    const keyboard = Markup.inlineKeyboard(rows);
 
-    if (m.bienvenida) {
+    if (process.env.WEBAPP_URL) {
       try {
-        return await ctx.replyWithPhoto(m.bienvenida, { caption: t, parse_mode: 'HTML', ...keyboard });
-      } catch (photoError) {
-        console.error('Error enviando bienvenida:', photoError);
-        return ctx.reply(t, { parse_mode: 'HTML', ...keyboard });
+        rows.push([await webAppButton('webapp', process.env.WEBAPP_URL)]);
+      } catch (e) {
+        console.error('START: error botón WebApp:', e);
       }
     }
-    return ctx.reply(t, { parse_mode: 'HTML', ...keyboard });
+
+    try {
+      rows.push([await button('modelos', { style: 'danger' })]);
+    } catch (e) {
+      console.error('START: error botón modelos:', e);
+      rows.push([{ text: '👑 Lista de Modelos 👑', callback_data: 'modelos' }]);
+    }
+
+    if (process.env.CANAL_FREE_URL) {
+      try {
+        rows.push([await urlButton('canal_free', process.env.CANAL_FREE_URL, { style: 'success' })]);
+      } catch (e) {
+        console.error('START: error botón canal:', e);
+      }
+    }
+
+    const extra = rows.length ? { ...Markup.inlineKeyboard(rows) } : {};
+
+    // Primero intentamos enviar la fotografía almacenada en Telegram.
+    if (media.bienvenida) {
+      try {
+        return await ctx.replyWithPhoto(media.bienvenida, {
+          caption: text,
+          parse_mode: 'HTML',
+          ...extra
+        });
+      } catch (e) {
+        console.error('START: error enviando foto; se intentará texto:', e);
+      }
+    }
+
+    // Fallback definitivo: texto sin parse_mode ni teclado.
+    // Así /start sigue funcionando incluso con HTML, botones o configuración inválida.
+    try {
+      return await ctx.reply(text, {
+        parse_mode: 'HTML',
+        ...extra
+      });
+    } catch (e) {
+      console.error('START: error enviando bienvenida HTML:', e);
+      return ctx.reply(String(text).replace(/<[^>]*>/g, ''));
+    }
   } catch (error) {
-    console.error('Error en /start:', error);
-    return ctx.reply('❌ No pude cargar la bienvenida. Revisa la configuración del bot.');
+    console.error('START: error inesperado:', error);
+    try {
+      return await ctx.reply('👋 ¡Hola! Bienvenid@ a VerifiedModels ✨');
+    } catch (e) {
+      console.error('START: no se pudo enviar ni el fallback:', e);
+    }
   }
 });
