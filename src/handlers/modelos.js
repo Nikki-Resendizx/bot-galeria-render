@@ -65,7 +65,11 @@ async function sendLista(ctx) {
     try {
       const custom = await button('emoji_listado', { section: 'galeria' });
       if (custom.icon_custom_emoji_id) btn.icon_custom_emoji_id = custom.icon_custom_emoji_id;
-      if (custom.text && custom.text !== 'emoji_listado') btn.text = custom.text.replace('{perfil}', getModelName(m));
+      // Only use a custom label when it is actually configured. Never replace
+      // the model name with a generic default/button key.
+      if (custom.text && custom.text !== 'emoji_listado' && custom.text !== '✨') {
+        btn.text = String(custom.text).replace('{perfil}', getModelName(m));
+      }
     } catch (_) {}
 
     // Conservamos 2 botones por fila, limitando el nombre para que cada
@@ -249,19 +253,25 @@ const registerModelos = bot => {
 
   bot.action('public_modelos', async ctx => {
     await ctx.answerCbQuery().catch(() => {});
+    try { await ctx.deleteMessage().catch(() => {}); } catch (_) {}
     try {
-      await ctx.deleteMessage().catch(() => {});
-    } catch (e) {}
-    return sendLista(ctx);
+      return await sendLista(ctx);
+    } catch (e) {
+      console.error('LISTA: fallo final en public_modelos:', e.message || e);
+      return ctx.reply('❌ No pude cargar la lista de modelos. Usa /modelos para reintentar.');
+    }
   });
 
   // Compatibilidad con el diseño del bot Vercel.
   bot.action('lista', async ctx => {
     await ctx.answerCbQuery().catch(() => {});
+    try { await ctx.deleteMessage().catch(() => {}); } catch (_) {}
     try {
-      await ctx.deleteMessage().catch(() => {});
-    } catch (e) {}
-    return sendLista(ctx);
+      return await sendLista(ctx);
+    } catch (e) {
+      console.error('LISTA: fallo final en lista:', e.message || e);
+      return ctx.reply('❌ No pude cargar la lista de modelos. Usa /modelos para reintentar.');
+    }
   });
 
   bot.action(/^ver_(.+)$/, async ctx => {
