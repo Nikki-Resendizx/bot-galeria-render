@@ -46,7 +46,8 @@ async function showPanel(ctx, edit = false) {
   const [p, m, media, users, storage] = await Promise.all([
     getPlantillas(), getModelos(), getBotMedia(), getUsers(), getStorage()
   ]);
-  const linked = Object.keys(storage.topics || {}).length;
+  const storageKeys = ['bienvenida', 'plantillas', 'galeria', 'botones', 'admins', 'usuarios', 'modelos'];
+  const linked = storageKeys.filter(key => storage.topics?.[key]?.message_thread_id).length;
   const text =
     '👑 <b>PANEL DE ADMIN VERIFIEDMODELS</b> 👑\n\n' +
     '👋 Bienvenida: ' + (media.bienvenida ? '✅' : '❌') + '\n' +
@@ -217,8 +218,7 @@ module.exports = bot => {
 
     if (a === 'adm_welcome_text') {
       return promptText(ctx, ctx.from.id, 'welcome_text',
-        '📝 <b>Nuevo texto de bienvenida</b>\n\nPuedes usar {mencion}, {nombre}, {usuario}, {username}, {nombre_completo}.\n\n✨ Se detectará automáticamente: formato nativo de Telegram, HTML o Markdown.\n💎 Los emojis Premium reales se detectan automáticamente.');
-    }
+        '📝 <b>Nuevo texto de bienvenida</b>\n\nPuedes usar {mencion}, {nombre}, {usuario}, {username}, {nombre_completo}.\n\n✨ Se detectará automáticamente: formato nativo de Telegram, HTML o Markdown.\n💎 Los emojis Premium reales se detectan automáticamente.');    }
 
     if (a === 'adm_welcome_emoji') {
       return promptText(ctx, ctx.from.id, 'welcome_emoji',
@@ -413,9 +413,7 @@ module.exports = bot => {
         '<code>/vincular plantillas</code>\n' +
         '<code>/vincular botones</code>\n' +
         '<code>/vincular admins</code>\n' +
-        '<code>/vincular usuarios</code>\n' +
-        '<code>/vincular modelos</code>\n' +
-        '<code>/vincular otros</code>',
+        '<code>/vincular usuarios</code>',
         { parse_mode: 'HTML', ...sectionKeyboard('storage') }
       );
     }
@@ -437,8 +435,7 @@ module.exports = bot => {
     const action = getPending(ctx.from.id);
     const caption = String(ctx.message.caption || '').trim();
 
-    // Aceptamos los estados actuales y los nombres usados por la versión
-    // anterior para no romper configuraciones o flujos ya existentes.
+    // Aceptamos los estados actuales y los nombres usados por la versión    // anterior para no romper configuraciones o flujos ya existentes.
     const welcomeActions = new Set(['welcome_photo', 'foto_bienvenida']);
     const galleryActions = new Set(['gallery_photo', 'foto_galeria']);
 
@@ -622,7 +619,7 @@ module.exports = bot => {
         delete data.id;
         data.votosBueno = Number(data.votosBueno || 0);
         data.votosMalo = Number(data.votosMalo || 0);
-        await db.collection('modelos').doc(id).set(data, { merge: true });
+        await require('../config/db').saveModelo(id, data);
         clearPending(ctx.from.id);
         return ctx.reply('✅ Modelo <b>' + escapeHtml(data.perfil || id) + '</b> creada con ID <code>' + escapeHtml(id) + '</code>.', { parse_mode: 'HTML' });
       }
@@ -631,12 +628,11 @@ module.exports = bot => {
         const parts = text.split('|');
         if (parts.length < 3) return ctx.reply('❌ Formato: ID | campo | valor');
         const [id, field, ...rest] = parts.map(x => x.trim());
-        const { db } = require('../config/db');
-        const ref = db.collection('modelos').doc(id);
-        const snap = await ref.get();
-        if (!snap.exists) return ctx.reply('❌ Modelo no encontrada.');
+        const { getModelo, saveModelo } = require('../config/db');
+        const existing = await getModelo(id);
+        if (!existing) return ctx.reply('❌ Modelo no encontrada.');
         const numeric = ['edad', 'votosBueno', 'votosMalo'];
-        await ref.set({ [field]: numeric.includes(field) ? Number(rest.join('|')) : rest.join('|') }, { merge: true });
+        await saveModelo(id, { [field]: numeric.includes(field) ? Number(rest.join('|')) : rest.join('|') });
         clearPending(ctx.from.id);
         return ctx.reply('✅ Campo <code>' + escapeHtml(field) + '</code> actualizado.', { parse_mode: 'HTML' });
       }
@@ -657,8 +653,7 @@ module.exports = bot => {
         return ctx.reply('🔄 Votos de <b>' + escapeHtml(model.perfil || text) + '</b> reiniciados.', { parse_mode: 'HTML' });
       }
 
-      if (action === 'admin_add' || action === 'admin_remove') {
-        if (!/^\d+$/.test(text)) return ctx.reply('❌ Debe ser un ID numérico de Telegram.');
+      if (action === 'admin_add' || action === 'admin_remove') {        if (!/^\d+$/.test(text)) return ctx.reply('❌ Debe ser un ID numérico de Telegram.');
         const c = await getConfig();
         const admins = Array.isArray(c.admins) ? c.admins.map(String) : [];
         if (action === 'admin_add') {
