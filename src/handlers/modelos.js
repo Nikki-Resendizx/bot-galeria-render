@@ -28,9 +28,20 @@ async function sendLista(ctx) {
   try {
     list = await getModelos();
   } catch (e) {
-    console.error('LISTA: error cargando modelos desde Firestore:', e.message || e);
-    return ctx.reply('❌ No pude leer los modelos desde la base de datos. Revisa Firestore/credenciales en Render.');
+    console.error('LISTA: primer intento Firestore:', e.message || e);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 350));
+      list = await getModelos();
+    } catch (retryError) {
+      console.error('LISTA: segundo intento Firestore:', retryError.message || retryError);
+      return ctx.reply('❌ No pude leer los modelos desde Firestore. Revisa los logs de Render para el error exacto.');
+    }
   }
+
+  // El adaptador devuelve un array, pero normalizamos por seguridad para no
+  // romper la lista si una versión antigua devuelve un objeto indexado.
+  list = Array.isArray(list) ? list : Object.values(list || {});
+  list = list.filter(m => m && (m.id !== undefined && m.id !== null));
 
   if (!list.length) {
     return ctx.reply('⏳ Aún no hay modelos');
@@ -67,8 +78,10 @@ async function sendLista(ctx) {
       if (custom.icon_custom_emoji_id) btn.icon_custom_emoji_id = custom.icon_custom_emoji_id;
       // Only use a custom label when it is actually configured. Never replace
       // the model name with a generic default/button key.
-      if (custom.text && custom.text !== 'emoji_listado' && custom.text !== '✨') {
-        btn.text = String(custom.text).replace('{perfil}', getModelName(m));
+      // Solo sustituimos el nombre si la etiqueta personalizada contiene
+      // {perfil}; así una configuración genérica nunca borra el nombre real.
+      if (custom.text && String(custom.text).includes('{perfil}')) {
+        btn.text = String(custom.text).replace(/\{perfil\}/g, getModelName(m));
       }
     } catch (_) {}
 
@@ -88,8 +101,6 @@ async function sendLista(ctx) {
   // aceptamos la estructura antigua del bot de Vercel.
   const legacyGallery = config.botones?.galeria || {};
   const canal = legacyGallery.canal_oficial || {};
-  const web = legacyGallery.galeria_virtual || {};
-
   const canalUrl = canal.url || process.env.CANAL_FREE_URL || process.env.CANAL_OFICIAL_URL || '';
   const webUrl = process.env.WEBAPP_URL || '';
 
