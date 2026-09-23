@@ -57,6 +57,14 @@ async function deletePlantilla(id) {
   await db.collection('config').doc('storage').collection('plantillas').doc(key).delete().catch(() => {});
 }
 
+async function saveModelo(id, data) {
+  await db.collection('modelos').doc(String(id)).set(
+    Object.assign({}, data, { actualizado: new Date().toISOString() }),
+    { merge: true }
+  );
+  global.__verifiedmodelsConfigVersion = Date.now();
+}
+
 async function getModelo(id) {
   const s = await db.collection('modelos').doc(String(id)).get();
   return s.exists ? Object.assign({ id: s.id }, s.data()) : null;
@@ -214,7 +222,7 @@ module.exports = {
   getConfig, saveConfig,
   getUser, saveUser, getUsers, setUserStatus,
   getPlantillas, savePlantilla, deletePlantilla,
-  getModelo, getModelos, deleteModelo, resetModeloVotes, voteModelo,
+  getModelo, getModelos, saveModelo, deleteModelo, resetModeloVotes, voteModelo,
   getBotMedia, saveBotMedia,
   getButtonConfig, saveButtonConfig,
   saveTemplateMedia,
