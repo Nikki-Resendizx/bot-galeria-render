@@ -26,7 +26,8 @@ module.exports = bot => bot.start(async ctx => {
             '👤 NUEVO USUARIO\n' +
             '🆔 ID: ' + String(from.id) + '\n' +
             '👤 Nombre: ' + String([from.first_name, from.last_name].filter(Boolean).join(' ') || 'Sin nombre') + '\n' +
-            '🔗 Username: ' + (from.username ? '@' + from.username : 'Sin username'),
+            '🔗 Username: ' + (from.username ? '@' + from.username : 'Sin username') + '\n' +
+            '📦 Registro: Telegram Storage / 👥 USUARIOS',
             {}
           );
         } catch (storageError) {
