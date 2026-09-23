@@ -14,7 +14,7 @@ module.exports=bot=>{
   bot.command('plantilla',async ctx=>{
     if(!await isAdmin(ctx.from.id))return;
     const a=ctx.message.text.replace(/^\/plantilla\s*/,'').split('|');
-    if(a.length<2)return ctx.reply('Uso: /plantilla nombre | texto con {perfil} {edad} {votosBueno}');
+    if(a.length<2)return ctx.reply('Uso: /plantilla nombre | texto con {perfil} {edad} {nacionalidad} {descripcion} {username} {votosBueno}');
     const nombre=a.shift().trim(),texto=a.join('|').trim(),id=slugify(nombre);
     const entities=ctx.message.entities||[];
     const { textoConPremiumToHtml }=require('../utils');
@@ -29,7 +29,7 @@ module.exports=bot=>{
       console.error('PLANTILLA: Storage:',storageError);
     }
     return ctx.reply(
-      '✅ Plantilla '+escapeHtml(nombre)+' guardada en Firebase. ID: <code>'+escapeHtml(id)+'</code>\n' +
+      '✅ Plantilla '+escapeHtml(nombre)+' guardada en Firebase y publicada en Telegram Storage. ID: <code>'+escapeHtml(id)+'</code>\n' +
       '📦 Storage Telegram: '+(storageOk?'✅ publicada en 📝 PLANTILLAS':'⚠️ no publicada: '+escapeHtml(storageError||'tema no vinculado'))+
       '\n\nSi aparece ⚠️, entra al tema 📝 PLANTILLAS y ejecuta <code>/vincular plantillas</code>.',
       {parse_mode:'HTML'}
@@ -120,7 +120,7 @@ module.exports=bot=>{
       }
     }catch(e){
       console.error('Error guardando media:',e);
-      return ctx.reply('❌ No pude guardar la foto. Revisa que los 6 temas estén vinculados y que el bot pueda enviar fotos al grupo.');
+      return ctx.reply('❌ No pude guardar la foto. Revisa que los 7 temas estén vinculados y que el bot pueda enviar fotos al grupo.');
     }
 
     return next();
