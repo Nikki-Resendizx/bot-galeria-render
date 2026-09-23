@@ -45,9 +45,7 @@ function registerStorageLink(bot) {
           '/vincular plantillas\n' +
           '/vincular botones\n' +
           '/vincular admins\n' +
-          '/vincular usuarios\n' +
-          '/vincular modelos\n' +
-          '/vincular otros'
+          '/vincular usuarios'
         );
       }
 
