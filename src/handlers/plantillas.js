@@ -3,7 +3,7 @@ const {
   saveConfig, getConfig, getPlantillas, savePlantilla, deletePlantilla,
   getBotMedia, saveBotMedia, saveTemplateMedia, getModelo, saveModelBotMedia
 } = require('../config/db');
-const { publishPhotoToStorage, publishModelPhoto, publishTextToStorage } = require('../storage');
+const { publishPhotoToStorage, publishModelPhoto, publishTemplatePhoto, publishTextToStorage, deleteStorageMessage } = require('../storage');
 
 const { setPending, getPending, clearPending } = require('../pending');
 
@@ -94,7 +94,7 @@ module.exports = bot => {
       if(c==='/bienvenida'){ const r=await publishPhotoToStorage(ctx.telegram,'bienvenida',fileId,'👋 BIENVENIDA'); await saveBotMedia('bienvenida',r.fileId); return ctx.reply('✅ Bienvenida guardada en 📦 Telegram Storage.'); }
       if(c==='/galeria'){ const r=await publishPhotoToStorage(ctx.telegram,'galeria',fileId,'🖼️ GALERÍA'); await saveBotMedia('galeria',r.fileId); return ctx.reply('✅ Galería guardada en 📦 Telegram Storage.'); }
       const x=c.match(/^\/plantilla_foto\s+(.+)$/i);
-      if(x){ const id=slugify(x[1]), q=await getPlantillas(); if(!q[id]) return ctx.reply('❌ Plantilla inexistente.'); const r=await publishPhotoToStorage(ctx.telegram,'plantillas',fileId,'📝 FOTO PLANTILLA: '+id); await saveTemplateMedia(id,r.fileId); return ctx.reply('✅ Foto de plantilla guardada en 📦 Telegram Storage.'); }
+      if(x){ const id=slugify(x[1]), q=await getPlantillas(); if(!q[id]) return ctx.reply('❌ Plantilla inexistente.'); const r=await publishTemplatePhoto(ctx.telegram,id,fileId,'📝 FOTO PLANTILLA: '+id); await saveTemplateMedia(id,r.fileId); return ctx.reply('✅ Foto de plantilla <b>'+escapeHtml(q[id].nombre||id)+'</b> guardada en 📦 Telegram Storage.',{parse_mode:'HTML'}); }
       const y=c.match(/^\/foto_modelo\s+(.+)$/i);
       if(y){ const id=y[1].trim(), model=await getModelo(id); if(!model)return ctx.reply('❌ Modelo inexistente en Firebase.'); const r=await publishModelPhoto(ctx.telegram,id,fileId,'💃 MODELO ID: '+id); await saveModelBotMedia(id,{file_id:r.fileId,message_id:r.message.message_id,message_thread_id:r.message.message_thread_id}); return ctx.reply('✅ Foto del bot guardada para '+escapeHtml(model.perfil||model.username||id)+' en 📦 Telegram Storage.',{parse_mode:'HTML'}); }
     } catch(e) { console.error('Error guardando media:',e); return ctx.reply('❌ No pude guardar la foto. Revisa los temas vinculados y permisos del bot.'); }
