@@ -88,38 +88,93 @@ async function deleteModelo(id) {
 
 async function resetModeloVotes(id) {
   const modelRef = db.collection('modelos').doc(String(id));
+
+  // Bloqueamos temporalmente los votos para que un voto concurrente
+  // no pueda quedar contado mientras eliminamos los documentos de votos.
   await db.runTransaction(async tx => {
     const snap = await tx.get(modelRef);
     if (!snap.exists) throw new Error('Modelo no encontrada');
-    tx.update(modelRef, { votosBueno: 0, votosMalo: 0, actualizado: new Date().toISOString() });
+    tx.update(modelRef, {
+      votosBueno: 0,
+      votosMalo: 0,
+      votosBloqueados: true,
+      actualizado: new Date().toISOString()
+    });
   });
-  const votes = await modelRef.collection('votos').get();
-  if (!votes.empty) {
-    const batch = db.batch();
-    votes.docs.forEach(d => batch.delete(d.ref));
-    await batch.commit();
+
+  try {
+    const votes = await modelRef.collection('votos').get();
+    for (let i = 0; i < votes.docs.length; i += 450) {
+      const batch = db.batch();
+      votes.docs.slice(i, i + 450).forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    }
+  } finally {
+    await db.runTransaction(async tx => {
+      const snap = await tx.get(modelRef);
+      if (snap.exists) {
+        tx.update(modelRef, {
+          votosBloqueados: false,
+          actualizado: new Date().toISOString()
+        });
+      }
+    });
   }
 }
 
 async function voteModelo(id, type, voterId) {
   const modelRef = db.collection('modelos').doc(String(id));
-  const normalizedType = type === 'bueno' ? 'bueno' : 'malo';
+  const normalizedType = type === 'bueno' ? 'bueno' : type === 'malo' ? 'malo' : null;
   const voterKey = String(voterId || '').trim();
+
+  if (!normalizedType) throw new Error('Tipo de voto no válido');
   if (!voterKey) throw new Error('No se pudo identificar al usuario');
 
   return db.runTransaction(async tx => {
     const snap = await tx.get(modelRef);
     if (!snap.exists) throw new Error('Modelo no encontrada');
+    if (snap.get('votosBloqueados') === true) {
+      throw new Error('Los votos están temporalmente bloqueados. Intenta de nuevo.');
+    }
+
     const voteRef = modelRef.collection('votos').doc(voterKey);
     const previous = await tx.get(voteRef);
-    if (previous.exists) return { registered:false, type:previous.get('type')||null, bueno:Number(snap.get('votosBueno')||0), malo:Number(snap.get('votosMalo')||0), count:Number(snap.get(normalizedType==='bueno'?'votosBueno':'votosMalo')||0) };
 
-    const field = normalizedType === 'bueno' ? 'votosBueno' : 'votosMalo';
-    const bueno = Number(snap.get('votosBueno') || 0) + (field === 'votosBueno' ? 1 : 0);
-    const malo = Number(snap.get('votosMalo') || 0) + (field === 'votosMalo' ? 1 : 0);
-    tx.update(modelRef, { votosBueno:bueno, votosMalo:malo, actualizado:new Date().toISOString() });
-    tx.set(voteRef, { type:normalizedType, creado:new Date().toISOString() });
-    return { registered:true, type:normalizedType, bueno, malo, count:normalizedType==='bueno'?bueno:malo };
+    const buenoActual = Number(snap.get('votosBueno') || 0);
+    const maloActual = Number(snap.get('votosMalo') || 0);
+
+    if (previous.exists) {
+      return {
+        registered: false,
+        type: previous.get('type') || null,
+        bueno: buenoActual,
+        malo: maloActual,
+        count: normalizedType === 'bueno' ? buenoActual : maloActual
+      };
+    }
+
+    const bueno = buenoActual + (normalizedType === 'bueno' ? 1 : 0);
+    const malo = maloActual + (normalizedType === 'malo' ? 1 : 0);
+
+    tx.update(modelRef, {
+      votosBueno: bueno,
+      votosMalo: malo,
+      actualizado: new Date().toISOString()
+    });
+
+    tx.set(voteRef, {
+      type: normalizedType,
+      creado: new Date().toISOString()
+    });
+
+    return {
+      registered: true,
+      type: normalizedType,
+      bueno,
+      malo,
+      total: bueno + malo,
+      count: normalizedType === 'bueno' ? bueno : malo
+    };
   });
 }
 
