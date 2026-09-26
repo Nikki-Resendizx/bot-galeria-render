@@ -571,35 +571,30 @@ module.exports = bot => {
       if (action === 'template_create') {
         const parts = text.split('|');
         if (parts.length < 2) return ctx.reply('❌ Formato: Nombre | Texto');
-        const { slugify } = require('../utils');
+        const { slugify, textoConPremiumToHtml, prepararTextoTelegram } = require('../utils');
         const nombre = parts.shift().trim();
-        const id = slugify(nombre);
         const plantillaText = parts.join('|').trim();
         const entities = ctx.message.entities || [];
-        const { textoConPremiumToHtml } = require('../utils');
         const converted = textoConPremiumToHtml(plantillaText, entities);
-        await require('../config/db').savePlantilla(id, {
-          nombre,
-          texto: converted.html,
-          entities,
-          parse_mode: prepararTextoTelegram(converted.html, entities).parse_mode || null
+        const detected = prepararTextoTelegram(plantillaText, entities);
+        const id = slugify(nombre);
+        setPending(ctx.from.id, {
+          type: 'template_confirm',
+          template: {
+            id, nombre, texto: converted.html, texto_original: plantillaText,
+            entities, premium_emoji_ids: converted.ids,
+            formato: detected.formato,
+            parse_mode: converted.ids.length ? 'HTML' : (detected.parse_mode || null),
+            actualizado: new Date().toISOString()
+          }
         });
-        let storageOk = false;
-        let storageError = '';
-        try {
-          await publishTextToStorage(ctx.telegram, 'plantillas',
-            '📝 PLANTILLA\nID: ' + id + '\nNombre: ' + nombre + '\n\n' + converted.html,
-            { parse_mode: 'HTML' });
-          storageOk = true;
-        } catch (storageErrorObject) {
-          storageError = String(storageErrorObject.message || storageErrorObject);
-          console.error('PLANTILLA: Storage:', storageError);
-        }
-        clearPending(ctx.from.id);
         return ctx.reply(
-          '✅ Plantilla <b>' + escapeHtml(nombre) + '</b> creada en Firebase. ID: <code>' + id + '</code>\n' +
-          '📦 Storage Telegram: ' + (storageOk ? '✅ publicada en 📝 PLANTILLAS' : '⚠️ no publicada: ' + escapeHtml(storageError || 'tema no vinculado')) +
-          '\n\nSi aparece ⚠️, entra al tema 📝 PLANTILLAS y ejecuta <code>/vincular plantillas</code>.',
+          '👁️ <b>VISTA PREVIA DE PLANTILLA</b>\\n\\n' +
+          converted.html +
+          '\\n\\n🆔 <code>' + escapeHtml(id) + '</code>' +
+          '\\n📐 Formato: <b>' + escapeHtml(detected.formato) + '</b>' +
+          '\\n💎 Emojis Premium: ' + (converted.ids.length ? '✅ ' + converted.ids.length : '❌') +
+          '\\n\\nEscribe <code>CONFIRMAR</code> para guardar o <code>/cancel</code> para cancelar.',
           { parse_mode: 'HTML' }
         );
       }
