@@ -81,18 +81,39 @@ async function deleteModelo(id) {
 }
 
 async function resetModeloVotes(id) {
-  await db.collection('modelos').doc(String(id)).set({ votosBueno: 0, votosMalo: 0 }, { merge: true });
+  const modelRef = db.collection('modelos').doc(String(id));
+  await db.runTransaction(async tx => {
+    const snap = await tx.get(modelRef);
+    if (!snap.exists) throw new Error('Modelo no encontrada');
+    tx.update(modelRef, { votosBueno: 0, votosMalo: 0, actualizado: new Date().toISOString() });
+  });
+  const votes = await modelRef.collection('votos').get();
+  if (!votes.empty) {
+    const batch = db.batch();
+    votes.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+  }
 }
 
-async function voteModelo(id, type) {
-  const ref = db.collection('modelos').doc(String(id));
+async function voteModelo(id, type, voterId) {
+  const modelRef = db.collection('modelos').doc(String(id));
+  const normalizedType = type === 'bueno' ? 'bueno' : 'malo';
+  const voterKey = String(voterId || '').trim();
+  if (!voterKey) throw new Error('No se pudo identificar al usuario');
+
   return db.runTransaction(async tx => {
-    const snap = await tx.get(ref);
+    const snap = await tx.get(modelRef);
     if (!snap.exists) throw new Error('Modelo no encontrada');
-    const field = type === 'bueno' ? 'votosBueno' : 'votosMalo';
-    const current = Number(snap.get(field) || 0);
-    tx.update(ref, { [field]: current + 1 });
-    return current + 1;
+    const voteRef = modelRef.collection('votos').doc(voterKey);
+    const previous = await tx.get(voteRef);
+    if (previous.exists) return { registered:false, type:previous.get('type')||null, bueno:Number(snap.get('votosBueno')||0), malo:Number(snap.get('votosMalo')||0), count:Number(snap.get(normalizedType==='bueno'?'votosBueno':'votosMalo')||0) };
+
+    const field = normalizedType === 'bueno' ? 'votosBueno' : 'votosMalo';
+    const bueno = Number(snap.get('votosBueno') || 0) + (field === 'votosBueno' ? 1 : 0);
+    const malo = Number(snap.get('votosMalo') || 0) + (field === 'votosMalo' ? 1 : 0);
+    tx.update(modelRef, { votosBueno:bueno, votosMalo:malo, actualizado:new Date().toISOString() });
+    tx.set(voteRef, { type:normalizedType, creado:new Date().toISOString() });
+    return { registered:true, type:normalizedType, bueno, malo, count:normalizedType==='bueno'?bueno:malo };
   });
 }
 
@@ -164,7 +185,11 @@ async function deleteBotMedia(key) {
   await botDoc.set(payload, { merge: true });
 }
 async function deleteModelBotMedia(modelId) {
-  await db.collection('config').doc('storage').collection('modelos').doc(String(modelId)).delete();
+  const ref = db.collection('config').doc('storage').collection('modelos').doc(String(modelId));
+  const snap = await ref.get();
+  const data = snap.exists ? snap.data() : null;
+  await ref.delete();
+  return data;
 }
 async function saveBotMedia(key, fileId) {
   const normalizedKey = String(key);
