@@ -1,97 +1,135 @@
-const { getStorage, saveStorageIndex } = require('./config/db');
+const { getStorage, saveStorageIndex, deleteStorageIndex } = require('./config/db');
 
-async function publishPhotoToStorage(telegram, key, fileId, caption='') {
-  const storage = await getStorage();
-  const topic = storage.topics?.[key];
-  const groupId = storage.group_id;
-  if (!groupId || !topic?.message_thread_id) {
-    throw new Error('El almacenamiento Telegram no está vinculado para: ' + key);
+const STORAGE_TOPICS = Object.freeze([
+  'bienvenida',
+  'plantillas',
+  'galeria',
+  'botones',
+  'admins',
+  'usuarios',
+  'modelos'
+]);
+
+function isValidTopicId(value) {
+  return Number.isInteger(Number(value)) && Number(value) > 0;
+}
+
+async function getTopic(key) {
+  const normalized = String(key || '').trim().toLowerCase();
+  if (!STORAGE_TOPICS.includes(normalized)) {
+    throw new Error('Tema Storage no válido: ' + normalized);
   }
 
-  const sent = await telegram.sendPhoto(groupId, fileId, {
-    message_thread_id: Number(topic.message_thread_id),
-    caption: caption || undefined
+  const storage = await getStorage();
+  const groupId = String(storage.group_id || '').trim();
+  const topic = storage.topics?.[normalized];
+  const threadId = topic?.message_thread_id;
+
+  if (!groupId || !isValidTopicId(threadId)) {
+    throw new Error('El almacenamiento Telegram no está vinculado para: ' + normalized);
+  }
+
+  return {
+    key: normalized,
+    groupId,
+    threadId: Number(threadId)
+  };
+}
+
+async function publishPhotoToStorage(telegram, key, fileId, caption = '', options = {}) {
+  const topic = await getTopic(key);
+  if (!fileId) throw new Error('Falta file_id para guardar en Storage.');
+
+  const sent = await telegram.sendPhoto(topic.groupId, fileId, {
+    message_thread_id: topic.threadId,
+    caption: caption || undefined,
+    ...(options.parse_mode ? { parse_mode: options.parse_mode } : {}),
+    ...(Array.isArray(options.entities) && options.entities.length ? { entities: options.entities } : {})
   });
 
   const savedFileId = sent.photo?.at(-1)?.file_id || fileId;
-  await saveStorageIndex(key, {
+  const record = {
     file_id: savedFileId,
     message_id: sent.message_id,
-    message_thread_id: Number(topic.message_thread_id),
-    group_id: String(groupId),
-    caption: caption || ''
-  });
+    message_thread_id: topic.threadId,
+    group_id: topic.groupId,
+    caption: caption || '',
+    actualizado: new Date().toISOString()
+  };
 
-  return { message: sent, fileId: savedFileId };
+  await saveStorageIndex(key, record);
+  return { message: sent, fileId: savedFileId, ...record };
 }
 
 async function publishTextToStorage(telegram, key, text, options = {}) {
-  const storage = await getStorage();
-  const topic = storage.topics?.[key];
-  const groupId = storage.group_id;
-  if (!groupId || !topic?.message_thread_id) {
-    throw new Error('El almacenamiento Telegram no está vinculado para: ' + key);
-  }
+  const topic = await getTopic(key);
+  const value = String(text || '');
+  if (!value) throw new Error('No se puede guardar un texto vacío en Storage.');
 
-  const payload = { message_thread_id: Number(topic.message_thread_id) };
+  const payload = { message_thread_id: topic.threadId };
   if (options.parse_mode) payload.parse_mode = options.parse_mode;
   if (Array.isArray(options.entities) && options.entities.length) payload.entities = options.entities;
 
-  const sent = await telegram.sendMessage(groupId, String(text || ''), payload);
+  const sent = await telegram.sendMessage(topic.groupId, value, payload);
 
-  await saveStorageIndex('log_' + key, {
+  const record = {
     message_id: sent.message_id,
-    message_thread_id: Number(topic.message_thread_id),
-    group_id: String(groupId),
-    text: String(text || ''),
+    message_thread_id: topic.threadId,
+    group_id: topic.groupId,
+    text: value,
     actualizado: new Date().toISOString()
-  });
+  };
 
+  await saveStorageIndex('text_' + key, record);
   return sent;
 }
 
-async function publishDocumentToStorage(telegram, key, fileId, caption='') {
-  const storage = await getStorage();
-  const topic = storage.topics?.[key];
-  const groupId = storage.group_id;
-  if (!groupId || !topic?.message_thread_id) {
-    throw new Error('El almacenamiento Telegram no está vinculado para: ' + key);
-  }
+async function publishDocumentToStorage(telegram, key, fileId, caption = '') {
+  const topic = await getTopic(key);
+  if (!fileId) throw new Error('Falta file_id para guardar en Storage.');
 
-  const sent = await telegram.sendDocument(groupId, fileId, {
-    message_thread_id: Number(topic.message_thread_id),
+  const sent = await telegram.sendDocument(topic.groupId, fileId, {
+    message_thread_id: topic.threadId,
     caption: caption || undefined
   });
 
-  await saveStorageIndex(key, {
-    file_id: fileId,
+  const record = {
+    file_id: sent.document?.file_id || fileId,
     message_id: sent.message_id,
-    message_thread_id: Number(topic.message_thread_id),
-    group_id: String(groupId),
-    caption: caption || ''
-  });
+    message_thread_id: topic.threadId,
+    group_id: topic.groupId,
+    caption: caption || '',
+    actualizado: new Date().toISOString()
+  };
 
-  return { message: sent, fileId };
+  await saveStorageIndex(key, record);
+  return { message: sent, fileId: record.file_id, ...record };
 }
 
 async function publishModelPhoto(telegram, modelId, fileId, caption = '') {
-  const storage = await getStorage();
-  const topic = storage.topics?.modelos;
-  const groupId = storage.group_id;
-  if (!groupId || !topic?.message_thread_id) throw new Error('El almacenamiento Telegram no está vinculado para: modelos');
-  const sent = await telegram.sendPhoto(groupId, fileId, { message_thread_id:Number(topic.message_thread_id), caption:caption || undefined });
-  return {
-    file_id: sent.photo?.at(-1)?.file_id || fileId,
-    message_id: sent.message_id,
-    message_thread_id:Number(topic.message_thread_id),
-    group_id:String(groupId),
-    caption:caption || '',
-    model_id:String(modelId)
-  };
+  const id = String(modelId || '').trim();
+  if (!id) throw new Error('Falta ID de modelo.');
+  const published = await publishPhotoToStorage(telegram, 'modelos', fileId, caption);
+  return { ...published, model_id: id };
 }
+
 async function deleteStorageMessage(telegram, media) {
   if (!media?.group_id || !media?.message_id) return false;
-  try { await telegram.deleteMessage(String(media.group_id), Number(media.message_id)); return true; }
-  catch(e){ console.error('STORAGE: no se pudo borrar mensaje', media.message_id, e.message || e); return false; }
+  try {
+    await telegram.deleteMessage(String(media.group_id), Number(media.message_id));
+    return true;
+  } catch (e) {
+    console.error('STORAGE: no se pudo borrar mensaje', media.message_id, e.message || e);
+    return false;
+  }
 }
-module.exports = { publishPhotoToStorage, publishDocumentToStorage, publishTextToStorage, publishModelPhoto, deleteStorageMessage };
+
+module.exports = {
+  STORAGE_TOPICS,
+  getTopic,
+  publishPhotoToStorage,
+  publishDocumentToStorage,
+  publishTextToStorage,
+  publishModelPhoto,
+  deleteStorageMessage
+};
