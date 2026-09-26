@@ -11,7 +11,7 @@ const {
 const { publishPhotoToStorage, publishTextToStorage } = require('../storage');
 const { prepararTextoTelegram } = require('../utils');
 
-const pending = new Map();
+const { setPending, clearPending, getPending, clearAllPending } = require('../pending');
 
 function b(text, callback_data, style = 'primary') {
   return { text, callback_data, style };
@@ -29,18 +29,6 @@ const panelKeyboard = () => kb([
   [b('📦 STORAGE TELEGRAM', 'adm_storage')],
   [b('🔄 RECARGAR', 'adm_reload')]
 ]);
-
-function setPending(userId, action) {
-  pending.set(String(userId), action);
-}
-
-function clearPending(userId) {
-  pending.delete(String(userId));
-}
-
-function getPending(userId) {
-  return pending.get(String(userId));
-}
 
 async function showPanel(ctx, edit = false) {
   const [p, m, media, users, storage] = await Promise.all([
@@ -196,8 +184,7 @@ module.exports = bot => {
   bot.command('cancel', async ctx => {
     if (!await isAdmin(ctx.from.id)) return;
     const hadPending = !!getPending(ctx.from.id);
-    clearPending(ctx.from.id);
-    global.__templatePending?.delete(String(ctx.from.id));
+    clearAllPending(ctx.from.id);
     return ctx.reply(hadPending ? '❌ Operación cancelada. No se guardó ningún cambio pendiente.' : 'ℹ️ No hay ninguna operación pendiente para cancelar.');
   });
 
@@ -588,8 +575,7 @@ module.exports = bot => {
         } catch (storageError) {
           console.error('PLANTILLA: Storage:', storageError.message || storageError);
         }
-        clearPending(ctx.from.id);
-        global.__templatePending?.delete(String(ctx.from.id));
+        clearAllPending(ctx.from.id);
         return ctx.reply(
           '✅ Plantilla <b>' + escapeHtml(tpl.nombre) + '</b> guardada.\\n' +
           '🆔 <code>' + escapeHtml(tpl.id) + '</code>\\n' +
