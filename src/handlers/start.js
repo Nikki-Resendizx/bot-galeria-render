@@ -11,19 +11,24 @@ module.exports = bot => bot.start(async ctx => {
   try {
     // Registro de usuarios: Telegram Storage es la única fuente.
     // No se escribe ni se consulta Firebase para usuarios.
-    try {
-      await publishTextToStorage(
-        ctx.telegram,
-        'usuarios',
-        '👤 USUARIO ENTRÓ AL BOT\n' +
-        '🆔 ID: ' + String(from.id) + '\n' +
-        '👤 Nombre: ' + String([from.first_name, from.last_name].filter(Boolean).join(' ') || 'Sin nombre') + '\n' +
-        '🔗 Username: ' + (from.username ? '@' + from.username : 'Sin username') + '\n' +
-        '📦 Registro: Telegram Storage / 👥 USUARIOS',
-        {}
-      );
-    } catch (storageError) {
-      console.error('START: registro Storage usuarios:', storageError.message || storageError);
+    global.__storageUsersSeen = global.__storageUsersSeen || new Set();
+    const userKey = String(from.id || '');
+    if (userKey && !global.__storageUsersSeen.has(userKey)) {
+      try {
+        await publishTextToStorage(
+          ctx.telegram,
+          'usuarios',
+          '👤 NUEVO USUARIO\n' +
+          '🆔 ID: ' + userKey + '\n' +
+          '👤 Nombre: ' + String([from.first_name, from.last_name].filter(Boolean).join(' ') || 'Sin nombre') + '\n' +
+          '🔗 Username: ' + (from.username ? '@' + from.username : 'Sin username') + '\n' +
+          '📦 Registro: Telegram Storage / 👥 USUARIOS',
+          {}
+        );
+        global.__storageUsersSeen.add(userKey);
+      } catch (storageError) {
+        console.error('START: registro Storage usuarios:', storageError.message || storageError);
+      }
     }
 
     let config = {};
