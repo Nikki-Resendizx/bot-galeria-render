@@ -401,14 +401,30 @@ module.exports = bot => {
     }
 
     if (a === 'adm_button_edit') {
-      return promptText(ctx, ctx.from.id, 'button_edit', '✏️ <b>Diseño de botones</b>\n\nFormato: <code>seccion.clave #r 💎 TEXTO</code>\n\n🔴 #r = rojo · 🔵 #p = azul · 🟢 #g = verde\n💎 Usa un emoji premium real; Telegram entrega su ID automáticamente.');
+      return promptText(ctx, ctx.from.id, 'button_edit',
+        '✏️ <b>Editar botón</b>\n\n' +
+        'Escribe en una sola línea:\n' +
+        '<code>#r 💎 NUEVO NOMBRE</code>\n' +
+        '<code>#p 💎 NUEVO NOMBRE</code>\n' +
+        '<code>#g 💎 NUEVO NOMBRE</code>\n\n' +
+        '🔴 #r = rojo\n🔵 #p = azul\n🟢 #g = verde\n' +
+        '💎 El emoji Premium real se detecta automáticamente.\n' +
+        '❌ /cancel para cancelar.');
     }
 
     if (a.startsWith('adm_btnedit:')) {
       const forcedKey = a.slice('adm_btnedit:'.length).trim();
       if (!forcedKey) return ctx.reply('❌ Botón no válido.');
       return promptText(ctx, ctx.from.id, 'button_edit:' + forcedKey,
-        '✏️ <b>Editar botón</b>\n\nBotón: <code>' + escapeHtml(forcedKey) + '</code>\n\nEscribe: <code>#r TEXTO</code> o <code>#p TEXTO</code> o <code>#g TEXTO</code>\n💎 Si incluyes un emoji Premium real, se guardará automáticamente.');
+        '✏️ <b>Editar botón seleccionado</b>\n\n' +
+        'Botón: <b>' + escapeHtml(forcedKey) + '</b>\n\n' +
+        'Ahora envía únicamente:\n' +
+        '<code>#r 💎 NUEVO NOMBRE</code>\n' +
+        '<code>#p 💎 NUEVO NOMBRE</code>\n' +
+        '<code>#g 💎 NUEVO NOMBRE</code>\n\n' +
+        '🔴 #r = rojo · 🔵 #p = azul · 🟢 #g = verde\n' +
+        '💎 Usa un emoji Premium real de Telegram. Se guardará automáticamente.\n' +
+        '❌ /cancel para cancelar.');
     }
 
     if (a === 'adm_stats') {
