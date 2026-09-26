@@ -471,6 +471,9 @@ module.exports = bot => {
     if (!await isAdmin(ctx.from.id)) return next();
     const action = getPending(ctx.from.id);
     if (!action) return next();
+    // Los comandos de plantillas pueden usar un objeto pendiente propio del flujo de confirmación.
+    // Ese flujo lo procesa plantillas.js; aquí solo manejamos acciones del panel (strings).
+    if (typeof action !== 'string') return next();
 
     const text = String(ctx.message.text || '').trim();
     if (!text || text.startsWith('/')) return next();
