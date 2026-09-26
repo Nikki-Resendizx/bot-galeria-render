@@ -85,24 +85,6 @@ module.exports = bot => {
     return ctx.reply('💎 <b>PLANTILLAS</b>\\n\\n'+(rows.join('\\n')||'Sin plantillas'),{parse_mode:'HTML'});
   });
 
-  bot.on('text', async (ctx,next) => {
-    if (!await isAdmin(ctx.from.id)) return next();
-    const p=getPending(ctx.from.id);
-    if (!p || p.type!=='template_confirm') return next();
-    const answer=String(ctx.message.text||'').trim().toLowerCase();
-    if(answer!=='confirmar') return ctx.reply('Escribe <code>CONFIRMAR</code> para guardar o <code>/cancel</code> para cancelar.',{parse_mode:'HTML'});
-    try {
-      await savePlantilla(p.template.id,p.template);
-      let storage='⚠️ no publicada';
-      try { await publishTemplate(ctx.telegram,p.template,'GUARDADA'); storage='✅ publicada en 📝 PLANTILLAS'; }
-      catch(e){ console.error('PLANTILLA Storage:',e.message||e); }
-      clearPending(ctx.from.id);
-      return ctx.reply('✅ <b>'+escapeHtml(p.template.nombre)+'</b> guardada.\\n🆔 <code>'+escapeHtml(p.template.id)+'</code>\\n📦 Telegram Storage: '+storage,{parse_mode:'HTML'});
-    } catch(e) {
-      return ctx.reply('❌ No pude guardar la plantilla: '+escapeHtml(e.message||'error'),{parse_mode:'HTML'});
-    }
-  });
-
   bot.on(['photo','document'], async (ctx,next) => {
     if (!await isAdmin(ctx.from.id)) return next();
     const p=ctx.message.photo?.at(-1), c=String(ctx.message.caption||'').trim();
