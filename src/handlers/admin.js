@@ -4,12 +4,13 @@ const {
 } = require('../utils');
 const {
   getPlantillas, getModelos, getBotMedia, getUsers, getConfig, getStorage,
-  getButtonConfig, saveButtonConfig, saveConfig,
+  getButtonConfig, saveButtonConfig, saveConfig, clearStorageCache,
   deletePlantilla, deleteModelo, resetModeloVotes, savePlantilla,
   saveBotMedia, deleteBotMedia, deleteModelBotMedia
 } = require('../config/db');
 const { publishPhotoToStorage, publishModelPhoto, publishTextToStorage, deleteStorageMessage } = require('../storage');
 const { prepararTextoTelegram, textoConPremiumToHtml, templateVariablesHelp, slugify } = require('../utils');
+const { clearCache: clearFirebaseCache } = require('../cache');
 const { normalizeStyle, splitButtonKey, cleanCustomEmojiText } = require('../buttons');
 
 const { setPending, clearPending, getPending, clearAllPending } = require('../pending');
@@ -28,6 +29,7 @@ const panelKeyboard = () => kb([
   [b('👑 ADMINS', 'adm_admins', 'success'), b('🧩 BOTONES', 'adm_botones', 'success')],
   [b('👥 USUARIOS', 'adm_usuarios', 'primary'), b('📊 ESTADÍSTICAS', 'adm_stats', 'primary')],
   [b('📦 STORAGE TELEGRAM', 'adm_storage')],
+  [b('🧹 LIMPIAR CACHÉ', 'adm_cache')],
   [b('🔄 RECARGAR', 'adm_reload')]
 ]);
 
@@ -197,6 +199,36 @@ module.exports = bot => {
     await ctx.answerCbQuery();
 
     if (a === 'adm_home') return showPanel(ctx, true);
+
+    if (a === 'adm_cache') {
+      return ctx.editMessageText(
+        '🧹 <b>LIMPIAR CACHÉ</b>\n\n' +
+        'Selecciona qué caché deseas limpiar.\n\n' +
+        '☁️ <b>Firebase</b>: caché local de configuración del bot.\n' +
+        '📦 <b>Telegram Store</b>: caché local del índice de almacenamiento y referencias de los 7 temas.\n\n' +
+        '⚠️ No elimina modelos, plantillas, fotos, mensajes ni datos reales. Solo fuerza una nueva lectura.',
+        { parse_mode: 'HTML', ...Markup.inlineKeyboard([
+          [b('☁️ Firebase', 'adm_cache_firebase', 'primary')],
+          [b('📦 Store grupo de temas', 'adm_cache_store', 'success')],
+          [b('🧹 Ambos', 'adm_cache_all', 'danger')],
+          [b('⬅️ Volver', 'adm_home')]
+        ]) }
+      );
+    }
+
+    if (a === 'adm_cache_firebase' || a === 'adm_cache_store' || a === 'adm_cache_all') {
+      const clearFirebase = a !== 'adm_cache_store';
+      const clearStore = a !== 'adm_cache_firebase';
+      if (clearFirebase) clearFirebaseCache();
+      if (clearStore) clearStorageCache();
+      const cleaned = [clearFirebase ? '☁️ Firebase' : '', clearStore ? '📦 Store grupo de temas' : ''].filter(Boolean).join(' + ');
+      return ctx.editMessageText(
+        '✅ <b>Caché limpiado</b>\n\n' + cleaned + '\n\n' +
+        '🔄 La próxima lectura volverá a consultar la fuente real.\n' +
+        '📌 No se borró ningún dato ni mensaje del Storage.',
+        { parse_mode: 'HTML', ...Markup.inlineKeyboard([[b('🧹 Limpiar otro', 'adm_cache')], [b('⬅️ Volver al panel', 'adm_home')]]) }
+      );
+    }
     if (a === 'adm_tpl_save' || a === 'adm_tpl_cancel') {
       const pendingTemplate = getPending(ctx.from.id);
       const tpl = pendingTemplate?.type === 'template_confirm' ? pendingTemplate.template : null;
