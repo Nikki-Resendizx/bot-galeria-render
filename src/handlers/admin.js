@@ -10,7 +10,7 @@ const {
 } = require('../config/db');
 const { publishPhotoToStorage, publishModelPhoto, publishTextToStorage, deleteStorageMessage } = require('../storage');
 const { prepararTextoTelegram } = require('../utils');
-const { normalizeStyle, splitButtonKey } = require('../buttons');
+const { normalizeStyle, splitButtonKey, cleanCustomEmojiText } = require('../buttons');
 
 const { setPending, clearPending, getPending, clearAllPending } = require('../pending');
 
@@ -156,7 +156,7 @@ module.exports = bot => {
 
     const key = match[1];
     const style = normalizeStyle({ '#r': 'danger', '#p': 'primary', '#g': 'success' }[match[2].toLowerCase()]);
-    const label = match[3].trim();
+    const label = cleanCustomEmojiText(match[3], ctx.message.entities || [], String(ctx.message.text || '').indexOf(match[3]));
 
     // El emoji premium NO se puede obtener del carácter visible 💎.
     // Telegram lo entrega como entidad custom_emoji con custom_emoji_id.
@@ -813,7 +813,9 @@ module.exports = bot => {
         if (!match) return ctx.reply('❌ Formato: <code>' + escapeHtml(forcedKey || 'clave') + (forcedKey ? ' #r TEXTO' : ' #r 💎 TEXTO') + '</code>', { parse_mode: 'HTML' });
         const key = forcedKey || match[1];
         const styleToken = forcedKey ? match[1] : match[2];
-        const label = (forcedKey ? match[2] : match[3]).trim();
+        const rawLabel = forcedKey ? match[2] : match[3];
+        const labelStart = String(ctx.message.text || '').indexOf(rawLabel);
+        const label = cleanCustomEmojiText(rawLabel, ctx.message.entities || [], labelStart);
         const style = normalizeStyle({ '#r': 'danger', '#p': 'primary', '#g': 'success' }[styleToken.toLowerCase()]);
         const data = { text: label, style };
         const entity = (ctx.message.entities || []).find(e => e.type === 'custom_emoji' && e.custom_emoji_id);
