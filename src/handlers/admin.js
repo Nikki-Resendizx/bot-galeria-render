@@ -734,6 +734,9 @@ module.exports = bot => {
 
       if (action === 'template_delete') {
         const current = await getConfig();
+        const storageBeforeDelete = await getStorage();
+        const templateMedia = storageBeforeDelete.media?.['plantilla_' + text];
+        if (templateMedia?.message_id) await deleteStorageMessage(ctx.telegram, templateMedia);
         await deletePlantilla(text);
         if (current.plantilla_activa === text) await saveConfig({ plantilla_activa: '', plantilla_texto: '' });
         clearPending(ctx.from.id);
