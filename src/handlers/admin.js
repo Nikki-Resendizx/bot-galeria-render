@@ -42,7 +42,7 @@ async function showPanel(ctx, edit = false) {
     '🖼️ Galería: ' + (media.galeria ? '✅' : '❌') + '\n' +
     '💃 Modelos en Firebase: <b>' + m.length + '</b>\n' +
     '📝 Plantillas: <b>' + Object.keys(p).length + '</b>\n' +
-    '👥 Usuarios: <b>' + users.length + '</b>\n' +
+    '👥 Usuarios: <b>Telegram Store</b>\n' +
     '📦 Temas Storage vinculados: <b>' + linked + '/7</b>\n\n' +
     '☁️ Firebase → datos y configuración\n' +
     '📸 Telegram → fotografías y archivos\n\n' +
@@ -412,7 +412,7 @@ module.exports = bot => {
       const m = await getModelos();
       const bueno = m.reduce((n, x) => n + Number(x.votosBueno || 0), 0);
       const malo = m.reduce((n, x) => n + Number(x.votosMalo || 0), 0);
-      return ctx.reply('📊 <b>ESTADÍSTICAS</b>\n\n👥 Usuarios: ' + u.length + '\n💃 Modelos: ' + m.length + '\n👍 Buenos: ' + bueno + '\n👎 Malos: ' + malo + '\n🗳️ Total: ' + (bueno + malo), { parse_mode: 'HTML', ...sectionKeyboard('stats') });
+      return ctx.reply('📊 <b>ESTADÍSTICAS</b>\n\n👥 Usuarios: Telegram Store\n💃 Modelos: ' + m.length + '\n👍 Buenos: ' + bueno + '\n👎 Malos: ' + malo + '\n🗳️ Total: ' + (bueno + malo), { parse_mode: 'HTML', ...sectionKeyboard('stats') });
     }
 
     if (a === 'adm_storage') {
