@@ -81,7 +81,7 @@ module.exports = bot => bot.start(async ctx => {
     }
 
     try {
-      rows.push([await button('modelos', { section: 'inicio', style: 'danger' })]);
+      rows.push([await button('modelos', { section: 'inicio' })]);
     } catch (e) {
       console.error('START: error botón modelos:', e);
       rows.push([{ text: '👑 Lista de Modelos 👑', callback_data: 'public_modelos' }]);
@@ -89,7 +89,7 @@ module.exports = bot => bot.start(async ctx => {
 
     if (process.env.CANAL_FREE_URL) {
       try {
-        rows.push([await urlButton('canal_free', process.env.CANAL_FREE_URL, { section: 'inicio', style: 'success' })]);
+        rows.push([await urlButton('canal_free', process.env.CANAL_FREE_URL, { section: 'inicio' })]);
       } catch (e) {
         console.error('START: error botón canal:', e);
       }
