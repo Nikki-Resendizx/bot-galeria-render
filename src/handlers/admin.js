@@ -31,8 +31,8 @@ const panelKeyboard = () => kb([
 ]);
 
 async function showPanel(ctx, edit = false) {
-  const [p, m, media, users, storage] = await Promise.all([
-    getPlantillas(), getModelos(), getBotMedia(), getUsers(), getStorage()
+  const [p, m, media, storage] = await Promise.all([
+    getPlantillas(), getModelos(), getBotMedia(), getStorage()
   ]);
   const storageKeys = ['bienvenida', 'plantillas', 'galeria', 'botones', 'admins', 'usuarios', 'modelos'];
   const linked = storageKeys.filter(key => storage.topics?.[key]?.message_thread_id).length;
@@ -410,7 +410,6 @@ module.exports = bot => {
 
     if (a === 'adm_stats') {
       const m = await getModelos();
-      const u = await getUsers();
       const bueno = m.reduce((n, x) => n + Number(x.votosBueno || 0), 0);
       const malo = m.reduce((n, x) => n + Number(x.votosMalo || 0), 0);
       return ctx.reply('📊 <b>ESTADÍSTICAS</b>\n\n👥 Usuarios: ' + u.length + '\n💃 Modelos: ' + m.length + '\n👍 Buenos: ' + bueno + '\n👎 Malos: ' + malo + '\n🗳️ Total: ' + (bueno + malo), { parse_mode: 'HTML', ...sectionKeyboard('stats') });
@@ -423,8 +422,17 @@ module.exports = bot => {
         '📦 <b>STORAGE TELEGRAM</b>\n\n' +
         'Grupo: <code>' + escapeHtml(String(s.group_id || 'no vinculado')) + '</code>\n\n' +
         keys.map(k => '• ' + k + ': ' + (s.topics?.[k]?.message_thread_id ? '✅ Topic ' + s.topics[k].message_thread_id : '❌')).join('\n') +
-        '\n\nLas fotos se publican en los temas ya vinculados y Firebase solo conserva sus referencias.',
+        '\n\nTelegram Store conserva el contenido y los file_id; Firebase conserva únicamente referencias técnicas y datos estructurados de modelos.',
         { parse_mode: 'HTML', ...sectionKeyboard('storage') }
+      );
+    }
+
+    if (a === 'adm_user_list') {
+      return ctx.reply(
+        '👥 <b>USUARIOS</b>\n\n' +
+        'Los registros se guardan exclusivamente en el tópico <b>👥 USUARIOS</b> del Telegram Store.\n\n' +
+        'ℹ️ El Bot API de Telegram no permite al bot leer el historial completo de un topic, por lo que esta sección ya no consulta ni guarda usuarios en Firebase.',
+        { parse_mode: 'HTML', ...sectionKeyboard('usuarios') }
       );
     }
 
