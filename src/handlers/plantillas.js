@@ -41,7 +41,7 @@ module.exports = bot => {
 
   bot.command('bienvenida', async ctx => {
     if (!await isAdmin(ctx.from.id)) return;
-    const t = ctx.message.text.replace(/^\\/bienvenida\\s*/,'').trim();
+    const t = ctx.message.text.replace(/^\/bienvenida\s*/,'').trim();
     if (!t) return ctx.reply('Uso: /bienvenida texto con {mencion} 💎');
     await saveConfig({ bienvenida_texto: t });
     return ctx.reply('✅ Texto de bienvenida guardado.');
@@ -49,7 +49,7 @@ module.exports = bot => {
 
   bot.command('plantilla', async ctx => {
     if (!await isAdmin(ctx.from.id)) return;
-    const a = ctx.message.text.replace(/^\\/plantilla\\s*/,'').split('|');
+    const a = ctx.message.text.replace(/^\/plantilla\s*/,'').split('|');
     if (a.length < 2) return ctx.reply('Uso: /plantilla Nombre | Texto con {perfil} {edad} {nacionalidad} {Lista_servicios} {descripcion} {username}');
     const name = a.shift().trim(), text = a.join('|').trim();
     const t = normalizeTemplate(name, text, ctx.message.entities || []);
@@ -65,7 +65,7 @@ module.exports = bot => {
 
   bot.command('plantilla_usar', async ctx => {
     if (!await isAdmin(ctx.from.id)) return;
-    const id = ctx.message.text.replace(/^\\/plantilla_usar\\s*/i,'').trim();
+    const id = ctx.message.text.replace(/^\/plantilla_usar\s*/i,'').trim();
     if (!id) return ctx.reply('Uso: /plantilla_usar ID');
     const p = await getPlantillas();
     if (!p[id]) return ctx.reply('❌ Plantilla inexistente. Usa /plantillas.');
@@ -82,7 +82,7 @@ module.exports = bot => {
 
   bot.command('delplantilla', async ctx => {
     if (!await isAdmin(ctx.from.id)) return;
-    const id=ctx.message.text.replace(/^\\/delplantilla\\s*/,'').trim();
+    const id=ctx.message.text.replace(/^\/delplantilla\s*/,'').trim();
     if(!id) return ctx.reply('Uso: /delplantilla ID');
     await deletePlantilla(id);
     clearPending(ctx.from.id);
@@ -122,9 +122,9 @@ module.exports = bot => {
     try {
       if(c==='/bienvenida'){ const r=await publishPhotoToStorage(ctx.telegram,'bienvenida',fileId,'👋 BIENVENIDA'); await saveBotMedia('bienvenida',r.fileId); return ctx.reply('✅ Bienvenida guardada en 📦 Telegram Storage.'); }
       if(c==='/galeria'){ const r=await publishPhotoToStorage(ctx.telegram,'galeria',fileId,'🖼️ GALERÍA'); await saveBotMedia('galeria',r.fileId); return ctx.reply('✅ Galería guardada en 📦 Telegram Storage.'); }
-      const x=c.match(/^\\/plantilla_foto\\s+(.+)$/i);
+      const x=c.match(/^\/plantilla_foto\s+(.+)$/i);
       if(x){ const id=slugify(x[1]), q=await getPlantillas(); if(!q[id]) return ctx.reply('❌ Plantilla inexistente.'); const r=await publishPhotoToStorage(ctx.telegram,'plantillas',fileId,'📝 FOTO PLANTILLA: '+id); await saveTemplateMedia(id,r.fileId); return ctx.reply('✅ Foto de plantilla guardada en 📦 Telegram Storage.'); }
-      const y=c.match(/^\\/foto_modelo\\s+(.+)$/i);
+      const y=c.match(/^\/foto_modelo\s+(.+)$/i);
       if(y){ const id=y[1].trim(), model=await getModelo(id); if(!model)return ctx.reply('❌ Modelo inexistente en Firebase.'); const r=await publishPhotoToStorage(ctx.telegram,'modelos',fileId,'💃 MODELO ID: '+id); await saveModelBotMedia(id,{file_id:r.fileId,message_id:r.message.message_id,message_thread_id:r.message.message_thread_id}); return ctx.reply('✅ Foto del bot guardada para '+escapeHtml(model.perfil||model.username||id)+' en 📦 Telegram Storage.',{parse_mode:'HTML'}); }
     } catch(e) { console.error('Error guardando media:',e); return ctx.reply('❌ No pude guardar la foto. Revisa los temas vinculados y permisos del bot.'); }
     return next();
