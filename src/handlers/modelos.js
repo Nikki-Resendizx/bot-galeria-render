@@ -191,24 +191,31 @@ async function sendModelo(ctx, id) {
   const markup = Markup.inlineKeyboard(buttons);
 
   if (fileId) {
+    // Telegram limita el caption de una foto a 1024 caracteres.
+    // Priorizamos siempre foto + texto en UN SOLO mensaje.
+    const caption = String(formato.text || '').slice(0, 1024);
     try {
       return await ctx.replyWithPhoto(fileId, {
-        caption: formato.text,
+        caption,
         ...(formato.parse_mode ? { parse_mode: formato.parse_mode } : {}),
         ...markup
       });
     } catch (e) {
-      console.error('MODELO: error enviando foto con formato', formato.formato, ':', e.message || e);
-      // Si Telegram rechaza el caption por formato, no impedimos abrir la modelo:
-      // enviamos la foto y el texto por separado.
+      console.error('MODELO: caption rechazado', formato.formato, ':', e.message || e);
+      // Segundo intento: texto plano, pero conservando foto + caption + botones.
+      // Así nunca se separa la foto del perfil por un problema de formato.
       try {
-        await ctx.replyWithPhoto(fileId);
-        return await ctx.reply(texto, {
-          ...(formato.parse_mode ? { parse_mode: formato.parse_mode } : {}),
+        const plainCaption = String(texto || '')
+          .replace(/<tg-emoji[^>]*>([\\s\\S]*?)<\\/tg-emoji>/gi, '$1')
+          .replace(/<[^>]+>/g, '')
+          .slice(0, 1024);
+        return await ctx.replyWithPhoto(fileId, {
+          caption: plainCaption,
           ...markup
         });
       } catch (fallbackError) {
-        console.error('MODELO: fallback foto/texto falló:', fallbackError.message || fallbackError);
+        console.error('MODELO: no se pudo enviar foto + caption:', fallbackError.message || fallbackError);
+        return ctx.reply(String(texto || '').slice(0, 4096), markup);
       }
     }
   }
