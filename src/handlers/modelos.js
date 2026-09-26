@@ -17,127 +17,80 @@ function getButtonModelName(m) {
 }
 
 async function sendLista(ctx) {
+  // La lista debe depender únicamente de Firestore + Telegram.
+  // La configuración, emojis premium, colores y foto son opcionales y
+  // nunca deben impedir que se envíen los modelos.
+  let list = [];
+  try {
+    list = await getModelos();
+  } catch (e) {
+    console.error('LISTA: error leyendo colección modelos:', e);
+    return ctx.reply('❌ No pude leer las modelos de Firebase. Revisa la colección "modelos" y los logs de Render.');
+  }
+
+  list = Array.isArray(list) ? list : Object.values(list || {});
+  list = list.filter(m => m && m.id !== undefined && m.id !== null);
+
+  if (!list.length) {
+    return ctx.reply('⏳ Aún no hay modelos registrados.');
+  }
+
   let config = {};
   try {
     config = await getConfig();
   } catch (e) {
-    console.error('LISTA: error cargando configuración:', e.message || e);
+    console.error('LISTA: configuración opcional no disponible:', e.message || e);
   }
 
-  let list;
-  try {
-    list = await getModelos();
-  } catch (e) {
-    console.error('LISTA: primer intento Firestore:', e.message || e);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 350));
-      list = await getModelos();
-    } catch (retryError) {
-      console.error('LISTA: segundo intento Firestore:', retryError.message || retryError);
-      return ctx.reply('❌ No pude leer los modelos desde Firestore. Revisa los logs de Render para el error exacto.');
-    }
-  }
-
-  // El adaptador devuelve un array, pero normalizamos por seguridad para no
-  // romper la lista si una versión antigua devuelve un objeto indexado.
-  list = Array.isArray(list) ? list : Object.values(list || {});
-  list = list.filter(m => m && (m.id !== undefined && m.id !== null));
-
-  if (!list.length) {
-    return ctx.reply('⏳ Aún no hay modelos');
-  }
-
-  // Mantener el orden más reciente primero cuando existe "fecha".
-  list.sort((a, b) => {
-    const da = a.fecha?.toDate ? a.fecha.toDate().getTime() : new Date(a.fecha || 0).getTime();
-    const db = b.fecha?.toDate ? b.fecha.toDate().getTime() : new Date(b.fecha || 0).getTime();
-    return db - da;
-  });
-
-  const template = config.galeria_texto || '👑 GALERÍA {mencion}\nElige una chica 👇';
-  const texto = replaceVars(template, ctx);
+  // Los botones de modelos se construyen primero en formato estándar.
+  // Esto garantiza que una función avanzada de Telegram no bloquee la lista.
   const keyboard = [];
   let row = [];
 
-  for (let index = 0; index < list.length; index++) {
-    const m = list[index];
-    const style = index % 2 === 0 ? 'primary' : 'danger';
-
-    const btn = {
-      text: getButtonModelName(m),
-      callback_data: 'ver_' + m.id,
-      style
-    };
-
-    if (config.galeria_emoji_premium) {
-      btn.icon_custom_emoji_id = String(config.galeria_emoji_premium);
-    }
-
-    try {
-      const custom = await button('emoji_listado', { section: 'galeria' });
-      if (custom.icon_custom_emoji_id) btn.icon_custom_emoji_id = custom.icon_custom_emoji_id;
-      // Only use a custom label when it is actually configured. Never replace
-      // the model name with a generic default/button key.
-      // Solo sustituimos el nombre si la etiqueta personalizada contiene
-      // {perfil}; así una configuración genérica nunca borra el nombre real.
-      if (custom.text && String(custom.text).includes('{perfil}')) {
-        btn.text = String(custom.text).replace(/\{perfil\}/g, getModelName(m));
-      }
-    } catch (_) {}
-
-    // Conservamos 2 botones por fila, limitando el nombre para que cada
-    // botón permanezca compacto y no provoque filas demasiado anchas.
-    row.push(btn);
+  for (const model of list) {
+    const name = getButtonModelName(model);
+    row.push({
+      text: name || 'Modelo',
+      callback_data: 'ver_' + String(model.id)
+    });
 
     if (row.length === 2) {
       keyboard.push(row);
       row = [];
     }
   }
-
   if (row.length) keyboard.push(row);
 
-  // Botones inferiores: conservamos la configuración actual y también
-  // aceptamos la estructura antigua del bot de Vercel.
+  // Botones inferiores opcionales.
   const legacyGallery = config.botones?.galeria || {};
   const canal = legacyGallery.canal_oficial || {};
   const canalUrl = canal.url || process.env.CANAL_FREE_URL || process.env.CANAL_OFICIAL_URL || '';
   const webUrl = process.env.WEBAPP_URL || '';
 
+  if (canalUrl) {
+    keyboard.push([{ text: '📢 Canal OFICIAL', url: String(canalUrl) }]);
+  }
+  if (webUrl) {
+    keyboard.push([{ text: '💎 Galería Virtual', web_app: { url: String(webUrl) } }]);
+  }
+  keyboard.push([
+    { text: '↩️ Volver', callback_data: 'public_modelos' },
+    { text: '🏠 Inicio', callback_data: 'inicio' }
+  ]);
+
+  // Texto de galería: si la configuración está dañada, usamos el texto
+  // predeterminado y seguimos enviando la lista.
+  let texto = '👑 GALERÍA\nElige una chica 👇';
   try {
-    if (canalUrl) {
-      keyboard.push([await urlButton('canal_oficial', canalUrl, { section: 'galeria', style: canal.style || 'success' })]);
-    }
-    if (webUrl) {
-      keyboard.push([await webAppButton('webapp', webUrl, { section: 'galeria', style: 'primary' })]);
-    }
-    keyboard.push([
-      await button('volver', { section: 'galeria', callback_data: 'public_modelos' }),
-      await button('inicio', { section: 'galeria', callback_data: 'inicio' })
-    ]);
+    texto = replaceVars(config.galeria_texto || texto, ctx);
   } catch (e) {
-    console.error('LISTA: error creando botones inferiores:', e.message || e);
-    keyboard.push([
-      { text: '↩️ Volver', callback_data: 'public_modelos', style: 'primary' },
-      { text: '🏠 Inicio', callback_data: 'inicio', style: 'primary' }
-    ]);
+    console.error('LISTA: error en texto de galería:', e.message || e);
   }
 
   const markup = { reply_markup: { inline_keyboard: keyboard } };
-
-  // Telegram puede rechazar una keyboard si una cuenta/bot todavía no
-  // admite alguna propiedad avanzada (style o custom emoji). En ese caso
-  // no debemos dejar caer toda la lista: reintentamos con botones estándar.
-  const safeKeyboard = keyboard.map(row => row.map(btn => {
-    const safe = { text: String(btn.text || ''), callback_data: btn.callback_data };
-    if (btn.url) { delete safe.callback_data; safe.url = btn.url; }
-    if (btn.web_app) { delete safe.callback_data; safe.web_app = btn.web_app; }
-    return safe;
-  }));
-  const safeMarkup = { reply_markup: { inline_keyboard: safeKeyboard } };
-
   const media = config.galeria_media || config.galeria_media_file_id || config.galeria_media_url || '';
 
+  // Primero intentamos la presentación configurada con foto.
   if (media) {
     try {
       return await ctx.replyWithPhoto(media, {
@@ -146,38 +99,20 @@ async function sendLista(ctx) {
         ...markup
       });
     } catch (e) {
-      console.error('LISTA: error enviando foto/keyboard avanzada:', e.message || e);
-      try {
-        return await ctx.replyWithPhoto(media, {
-          caption: texto,
-          parse_mode: 'HTML',
-          ...safeMarkup
-        });
-      } catch (fallbackError) {
-        console.error('LISTA: error enviando foto/keyboard estándar:', fallbackError.message || fallbackError);
-      }
+      console.error('LISTA: foto configurada no disponible, usando texto:', e.message || e);
     }
   }
 
+  // Camino principal sin dependencias de foto, premium emoji ni estilos.
   try {
     return await ctx.reply(texto, {
       parse_mode: 'HTML',
       ...markup
     });
   } catch (e) {
-    console.error('LISTA: error enviando keyboard avanzada:', e.message || e);
-    try {
-      return await ctx.reply(texto, {
-        parse_mode: 'HTML',
-        ...safeMarkup
-      });
-    } catch (fallbackError) {
-      console.error('LISTA: error HTML en galería, enviando texto plano:', fallbackError.message || fallbackError);
-      // Último recurso: un texto plano siempre permite mostrar la lista
-      // aunque la configuración de formato HTML esté mal escrita.
-      const plainText = String(texto || '').replace(/<[^>]*>/g, '');
-      return ctx.reply(plainText, safeMarkup);
-    }
+    console.error('LISTA: HTML/keyboard falló, usando texto plano:', e.message || e);
+    const plain = String(texto || '').replace(/<[^>]*>/g, '');
+    return ctx.reply(plain, markup);
   }
 }
 
