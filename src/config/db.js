@@ -170,8 +170,10 @@ async function deleteBotMedia(key) {
 }
 async function deleteModelBotMedia(modelId) {
   const key = 'modelo_' + String(modelId);
+  const storage = await getStorage();
+  const previous = storage.media?.[key] || null;
   await deleteStorageIndex(key);
-  return true;
+  return previous;
 }
 async function saveBotMedia(key, fileId) {
   const normalizedKey = String(key);
