@@ -202,11 +202,17 @@ const registerModelos = bot => {
   });
 
   bot.action(/^ver_(.+)$/, async ctx => {
+    const id = ctx.match[1];
+
     await ctx.answerCbQuery().catch(() => {});
+
     try {
       await ctx.deleteMessage().catch(() => {});
-    } catch (e) {}
-    return sendModelo(ctx, ctx.match[1]);
+      return await sendModelo(ctx, id);
+    } catch (e) {
+      console.error('MODELO: error al abrir modelo desde la lista:', id, e);
+      return ctx.reply('❌ No pude abrir esta modelo. Revisa los logs de Render.');
+    }
   });
 
   bot.action(/^voto_(bueno|malo):(.+)$/, async ctx => {
