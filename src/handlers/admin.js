@@ -647,7 +647,7 @@ module.exports = bot => {
           '2️⃣ <b>Contenido de la plantilla</b>\n\n' +
           'Ahora envía el texto completo usando las variables que necesites y tus emojis Premium.\n\n' +
           'Variables disponibles, entre otras:\n' +
-          '<code>{mencion}</code> <code>{perfil}</code> <code>{username}</code> <code>{usuario}</code> <code>{edad}</code> <code>{nacionalidad}</code> <code>{Lista_servicios}</code> <code>{descripcion}</code> <code>{votosBueno}</code> <code>{votosMalo}</code> <code>{canal_free}</code> <code>{contacto}</code>\n\n' +
+          '<code>{mencion}</code> <code>{perfil}</code> <code>{username}</code> <code>{edad}</code> <code>{nacionalidad}</code> <code>{Lista_servicios}</code> <code>{descripcion}</code> <code>{votosBueno}</code> <code>{votosMalo}</code> <code>{total_votos}</code> <code>{porcentaje_bueno}</code> <code>{porcentaje_malo}</code> <code>{canal_free}</code> <code>{contacto}</code>\n\n' +
           '💎 Los emojis Premium reales se detectan automáticamente.\n✨ También se detecta automáticamente el formato de Telegram/HTML/Markdown.\n\n❌ /cancel para cancelar.',
           { parse_mode: 'HTML' }
         );
