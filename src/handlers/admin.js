@@ -5,11 +5,11 @@ const {
 const {
   getPlantillas, getModelos, getBotMedia, getUsers, getConfig, getStorage,
   getButtonConfig, saveButtonConfig, saveConfig,
-  deletePlantilla, deleteModelo, resetModeloVotes,
+  deletePlantilla, deleteModelo, resetModeloVotes, savePlantilla,
   saveBotMedia, deleteBotMedia, deleteModelBotMedia
 } = require('../config/db');
 const { publishPhotoToStorage, publishModelPhoto, publishTextToStorage, deleteStorageMessage } = require('../storage');
-const { prepararTextoTelegram } = require('../utils');
+const { prepararTextoTelegram, textoConPremiumToHtml, templateVariablesHelp, slugify } = require('../utils');
 const { normalizeStyle, splitButtonKey, cleanCustomEmojiText } = require('../buttons');
 
 const { setPending, clearPending, getPending, clearAllPending } = require('../pending');
@@ -533,11 +533,9 @@ module.exports = bot => {
 
   bot.on('text', async (ctx, next) => {
     if (!await isAdmin(ctx.from.id)) return next();
-    const action = getPending(ctx.from.id);
-    if (!action) return next();
-    // Los comandos de plantillas pueden usar un objeto pendiente propio del flujo de confirmación.
-    // Ese flujo lo procesa plantillas.js; aquí solo manejamos acciones del panel (strings).
-    if (typeof action !== 'string') return next();
+    const pendingState = getPending(ctx.from.id);
+    if (!pendingState) return next();
+    const action = typeof pendingState === 'string' ? pendingState : pendingState.type;
 
     const text = String(ctx.message.text || '').trim();
     if (!text || text.startsWith('/')) return next();
@@ -626,12 +624,12 @@ module.exports = bot => {
 
       if (action === 'template_confirm') {
         if (text.toLowerCase() !== 'confirmar') {
-          return ctx.reply('Escribe <code>CONFIRMAR</code> para guardar o <code>/cancel</code> para cancelar.', { parse_mode: 'HTML' });
+          return ctx.reply('Usa los botones de la vista previa: ✅ Guardar plantilla o ❌ Cancelar.', { parse_mode: 'HTML' });
         }
         const pendingTemplate = getPending(ctx.from.id);
         const tpl = pendingTemplate?.type === 'template_confirm' ? pendingTemplate.template : null;
         if (!tpl) return ctx.reply('❌ La vista previa expiró. Vuelve a crear la plantilla.');
-        await require('../config/db').savePlantilla(tpl.id, tpl);
+        await savePlantilla(tpl.id, tpl);
         let storageOk = false;
         try {
           await publishTextToStorage(
@@ -658,7 +656,6 @@ module.exports = bot => {
         if (name.length < 1 || name.length > 80) {
           return ctx.reply('❌ El nombre debe tener entre 1 y 80 caracteres.');
         }
-        const { slugify } = require('../utils');
         const id = slugify(name);
         if (!id) return ctx.reply('❌ Ese nombre no puede generar un ID válido. Usa letras o números.');
         const existing = await getPlantillas();
@@ -669,8 +666,7 @@ module.exports = bot => {
         return ctx.reply(
           '2️⃣ <b>Contenido de la plantilla</b>\n\n' +
           'Ahora envía el texto completo usando las variables que necesites y tus emojis Premium.\n\n' +
-          'Variables disponibles, entre otras:\n' +
-          '<code>{mencion}</code> <code>{perfil}</code> <code>{username}</code> <code>{edad}</code> <code>{nacionalidad}</code> <code>{Lista_servicios}</code> <code>{descripcion}</code> <code>{votosBueno}</code> <code>{votosMalo}</code> <code>{total_votos}</code> <code>{porcentaje_bueno}</code> <code>{porcentaje_malo}</code> <code>{canal_free}</code> <code>{contacto}</code>\n\n' +
+          'Variables disponibles:\n' + templateVariablesHelp() + '\n\n' +
           '💎 Los emojis Premium reales se detectan automáticamente.\n✨ También se detecta automáticamente el formato de Telegram/HTML/Markdown.\n\n❌ /cancel para cancelar.',
           { parse_mode: 'HTML' }
         );
@@ -683,7 +679,6 @@ module.exports = bot => {
           clearPending(ctx.from.id);
           return ctx.reply('❌ La creación expiró. Pulsa ➕ Crear nuevamente.');
         }
-        const { slugify, textoConPremiumToHtml, prepararTextoTelegram } = require('../utils');
         const entities = ctx.message.entities || [];
         const converted = textoConPremiumToHtml(text, entities);
         const detected = prepararTextoTelegram(text, entities);
@@ -727,7 +722,7 @@ module.exports = bot => {
         if (text.toLowerCase() !== 'confirmar') {
           return ctx.reply('Usa los botones de la vista previa: ✅ Guardar plantilla o ❌ Cancelar.', { parse_mode: 'HTML' });
         }
-        await require('../config/db').savePlantilla(tpl.id, tpl);
+        await savePlantilla(tpl.id, tpl);
         let storageOk = false;
         try {
           await publishTextToStorage(
