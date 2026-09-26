@@ -1,8 +1,9 @@
-const { getModelos, getModelo, voteModelo, getModelBotMedia } = require('../config/db');
+const { getModelos, getModelo, voteModelo, getModelBotMedia, saveModelBotMedia } = require('../config/db');
 const { getConfig } = require('../cache');
 const { escapeHtml, replaceVars } = require('../utils');
 const { Markup } = require('telegraf');
 const { button, urlButton, webAppButton } = require('../buttons');
+const { publishModelPhoto, deleteStorageMessage } = require('../storage');
 
 function getModelName(m) {
   return m.perfil || m.nombre || m.username || 'Modelo';
@@ -240,11 +241,49 @@ const registerModelos = bot => {
     }
   });
 
+  bot.command('foto_modelo', async ctx => {
+    const id = String(ctx.message.text || '').trim().split(/\s+/)[1];
+    if (!id) return ctx.reply('❌ Usa: <code>/foto_modelo ID</code>', { parse_mode:'HTML' });
+    const model = await getModelo(id);
+    if (!model) return ctx.reply('❌ Modelo no encontrada.');
+    global.__modelPhotoPending = global.__modelPhotoPending || new Map();
+    global.__modelPhotoPending.set(String(ctx.from.id), id);
+    return ctx.reply('📸 Ahora envía la foto de <b>' + escapeHtml(model.perfil || id) + '</b>.', {parse_mode:'HTML'});
+  });
+
+  bot.on(['photo','document'], async ctx => {
+    const caption = String(ctx.message.caption || '').trim();
+    const match = caption.match(/^\/foto_modelo(?:\s+|$)(\S+)/i);
+    const pending = global.__modelPhotoPending?.get(String(ctx.from?.id));
+    const id = match?.[1] || pending;
+    if (!id) return;
+    try {
+      const model = await getModelo(id);
+      if (!model) return ctx.reply('❌ Modelo no encontrada.');
+      const fileId = ctx.message.photo?.at(-1)?.file_id || ctx.message.document?.file_id;
+      if (!fileId) return ctx.reply('❌ No pude obtener el file_id.');
+      const oldMedia = await getModelBotMedia(id);
+      if (oldMedia?.message_id) await deleteStorageMessage(ctx.telegram, oldMedia);
+      const published = await publishModelPhoto(ctx.telegram, id, fileId, '💃 ' + String(model.perfil || id));
+      await saveModelBotMedia(id, published);
+      global.__modelPhotoPending?.delete(String(ctx.from.id));
+      return ctx.reply('✅ Foto de <b>' + escapeHtml(model.perfil || id) + '</b> actualizada.\n🆔 file_id: <code>' + escapeHtml(published.file_id) + '</code>\n📦 Topic 💃 MODELOS: mensaje <code>' + published.message_id + '</code>', {parse_mode:'HTML'});
+    } catch(e) {
+      console.error('MODELOS: error guardando foto:',e);
+      return ctx.reply('❌ No pude guardar la foto: ' + escapeHtml(e.message || 'error'), {parse_mode:'HTML'});
+    }
+  });
+
   bot.action(/^voto_(bueno|malo):(.+)$/, async ctx => {
     try {
       const type = ctx.match[1];
       const id = ctx.match[2];
-      const n = await voteModelo(id, type);
+      const result = await voteModelo(id, type, String(ctx.from?.id || ''));
+      if (!result.registered) {
+        await ctx.answerCbQuery('Ya votaste por esta modelo', { show_alert: true });
+        return;
+      }
+      const n = result.count;
       const modelAfter = await getModelo(id);
 
       await ctx.answerCbQuery(type === 'bueno' ? '👍 Voto registrado' : '👎 Voto registrado');
@@ -281,6 +320,10 @@ const registerModelos = bot => {
 };
 
 registerModelos.sendLista = sendLista;
+registerModelos.setPhotoPending = (userId, modelId) => {
+  global.__modelPhotoPending = global.__modelPhotoPending || new Map();
+  global.__modelPhotoPending.set(String(userId), String(modelId));
+};
 registerModelos.sendModelo = sendModelo;
 
 module.exports = registerModelos;
