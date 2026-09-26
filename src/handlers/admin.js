@@ -8,7 +8,7 @@ const {
   deletePlantilla, deleteModelo, resetModeloVotes,
   saveBotMedia, deleteBotMedia, deleteModelBotMedia
 } = require('../config/db');
-const { publishPhotoToStorage, publishTextToStorage, deleteStorageMessage } = require('../storage');
+const { publishPhotoToStorage, publishModelPhoto, publishTextToStorage, deleteStorageMessage } = require('../storage');
 const { prepararTextoTelegram } = require('../utils');
 
 const { setPending, clearPending, getPending, clearAllPending } = require('../pending');
