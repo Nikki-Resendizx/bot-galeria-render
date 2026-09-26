@@ -10,6 +10,7 @@ const {
 } = require('../config/db');
 const { publishPhotoToStorage, publishModelPhoto, publishTextToStorage, deleteStorageMessage } = require('../storage');
 const { prepararTextoTelegram } = require('../utils');
+const { normalizeStyle, splitButtonKey } = require('../buttons');
 
 const { setPending, clearPending, getPending, clearAllPending } = require('../pending');
 
@@ -154,7 +155,7 @@ module.exports = bot => {
     }
 
     const key = match[1];
-    const style = { '#r': 'danger', '#p': 'primary', '#g': 'success' }[match[2].toLowerCase()];
+    const style = normalizeStyle({ '#r': 'danger', '#p': 'primary', '#g': 'success' }[match[2].toLowerCase()]);
     const label = match[3].trim();
 
     // El emoji premium NO se puede obtener del carácter visible 💎.
@@ -165,7 +166,9 @@ module.exports = bot => {
     // Ejemplo: galeria.canal_oficial #r 💎 CANAL OFICIAL
     if (entity?.custom_emoji_id) data.icon_custom_emoji_id = String(entity.custom_emoji_id);
 
-    await saveButtonConfig(key, data);
+    const normalized = splitButtonKey(key);
+        const storageKey = normalized.section ? normalized.section + '.' + normalized.key : normalized.key;
+        await saveButtonConfig(storageKey, data);
 
     return ctx.reply(
       '✅ Botón <b>' + escapeHtml(key) + '</b> actualizado.\\n' +
@@ -811,9 +814,9 @@ module.exports = bot => {
         const key = forcedKey || match[1];
         const styleToken = forcedKey ? match[1] : match[2];
         const label = (forcedKey ? match[2] : match[3]).trim();
-        const style = { '#r': 'danger', '#p': 'primary', '#g': 'success' }[styleToken.toLowerCase()];
+        const style = normalizeStyle({ '#r': 'danger', '#p': 'primary', '#g': 'success' }[styleToken.toLowerCase()]);
         const data = { text: label, style };
-        const entity = (ctx.message.entities || []).find(e => e.type === 'custom_emoji');
+        const entity = (ctx.message.entities || []).find(e => e.type === 'custom_emoji' && e.custom_emoji_id);
         if (entity?.custom_emoji_id) data.icon_custom_emoji_id = String(entity.custom_emoji_id);
         await saveButtonConfig(key, data);
         try {
