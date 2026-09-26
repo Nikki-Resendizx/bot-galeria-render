@@ -17,41 +17,50 @@ function getButtonModelName(m) {
 }
 
 async function sendLista(ctx) {
-  // La lista debe depender únicamente de Firestore + Telegram.
-  // La configuración, emojis premium, colores y foto son opcionales y
-  // nunca deben impedir que se envíen los modelos.
-  let list = [];
+  // RUTA CRÍTICA: la lista solo depende de Firestore + Telegram.
+  // No usamos config, HTML, fotos, emojis premium ni botones avanzados aquí.
+  let list;
+
   try {
     list = await getModelos();
   } catch (e) {
     console.error('LISTA: error leyendo colección modelos:', e);
-    return ctx.reply('❌ No pude leer las modelos de Firebase. Revisa la colección "modelos" y los logs de Render.');
+    return ctx.reply('❌ No pude leer las modelos de Firebase.');
   }
 
-  list = Array.isArray(list) ? list : Object.values(list || {});
-  list = list.filter(m => m && m.id !== undefined && m.id !== null);
+  if (!Array.isArray(list)) {
+    list = Object.values(list || {});
+  }
+
+  list = list.filter(model =>
+    model &&
+    model.id !== undefined &&
+    model.id !== null &&
+    String(model.id).trim() !== ''
+  );
 
   if (!list.length) {
     return ctx.reply('⏳ Aún no hay modelos registrados.');
   }
 
-  let config = {};
-  try {
-    config = await getConfig();
-  } catch (e) {
-    console.error('LISTA: configuración opcional no disponible:', e.message || e);
-  }
-
-  // Los botones de modelos se construyen primero en formato estándar.
-  // Esto garantiza que una función avanzada de Telegram no bloquee la lista.
+  // Telegram limita callback_data a 64 bytes.
+  // Los IDs normales de Firestore caben de sobra; si algún ID es demasiado
+  // largo lo omitimos para evitar que Telegram rechace TODO el teclado.
   const keyboard = [];
   let row = [];
 
   for (const model of list) {
-    const name = getButtonModelName(model);
+    const id = String(model.id);
+    const callback = 'ver_' + id;
+
+    if (Buffer.byteLength(callback, 'utf8') > 64) {
+      console.error('LISTA: ID de modelo demasiado largo, omitido:', id);
+      continue;
+    }
+
     row.push({
-      text: name || 'Modelo',
-      callback_data: 'ver_' + String(model.id)
+      text: getButtonModelName(model) || 'Modelo',
+      callback_data: callback
     });
 
     if (row.length === 2) {
@@ -59,60 +68,32 @@ async function sendLista(ctx) {
       row = [];
     }
   }
-  if (row.length) keyboard.push(row);
 
-  // Botones inferiores opcionales.
-  const legacyGallery = config.botones?.galeria || {};
-  const canal = legacyGallery.canal_oficial || {};
-  const canalUrl = canal.url || process.env.CANAL_FREE_URL || process.env.CANAL_OFICIAL_URL || '';
-  const webUrl = process.env.WEBAPP_URL || '';
+  if (row.length) {
+    keyboard.push(row);
+  }
 
-  if (canalUrl) {
-    keyboard.push([{ text: '📢 Canal OFICIAL', url: String(canalUrl) }]);
+  if (!keyboard.length) {
+    return ctx.reply('❌ Las modelos tienen IDs no válidos para los botones de Telegram.');
   }
-  if (webUrl) {
-    keyboard.push([{ text: '💎 Galería Virtual', web_app: { url: String(webUrl) } }]);
-  }
+
+  // Solo botones estándar de Telegram. Nada externo puede bloquear la lista.
   keyboard.push([
-    { text: '↩️ Volver', callback_data: 'public_modelos' },
+    { text: '↩️ Volver', callback_data: 'inicio' },
     { text: '🏠 Inicio', callback_data: 'inicio' }
   ]);
 
-  // Texto de galería: si la configuración está dañada, usamos el texto
-  // predeterminado y seguimos enviando la lista.
-  let texto = '👑 GALERÍA\nElige una chica 👇';
-  try {
-    texto = replaceVars(config.galeria_texto || texto, ctx);
-  } catch (e) {
-    console.error('LISTA: error en texto de galería:', e.message || e);
-  }
+  const texto = '👑 GALERÍA\nElige una chica 👇';
 
-  const markup = { reply_markup: { inline_keyboard: keyboard } };
-  const media = config.galeria_media || config.galeria_media_file_id || config.galeria_media_url || '';
-
-  // Primero intentamos la presentación configurada con foto.
-  if (media) {
-    try {
-      return await ctx.replyWithPhoto(media, {
-        caption: texto,
-        parse_mode: 'HTML',
-        ...markup
-      });
-    } catch (e) {
-      console.error('LISTA: foto configurada no disponible, usando texto:', e.message || e);
-    }
-  }
-
-  // Camino principal sin dependencias de foto, premium emoji ni estilos.
   try {
     return await ctx.reply(texto, {
-      parse_mode: 'HTML',
-      ...markup
+      reply_markup: {
+        inline_keyboard: keyboard
+      }
     });
   } catch (e) {
-    console.error('LISTA: HTML/keyboard falló, usando texto plano:', e.message || e);
-    const plain = String(texto || '').replace(/<[^>]*>/g, '');
-    return ctx.reply(plain, markup);
+    console.error('LISTA: Telegram rechazó el teclado/lista:', e);
+    return ctx.reply('❌ No pude mostrar la lista de modelos. Revisa los logs de Render.');
   }
 }
 
