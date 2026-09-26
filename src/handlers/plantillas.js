@@ -39,7 +39,7 @@ module.exports = bot => {
   bot.command('plantilla', async ctx => {
     if (!await isAdmin(ctx.from.id)) return;
     const a = ctx.message.text.replace(/^\/plantilla\s*/,'').split('|');
-    if (a.length < 2) return ctx.reply('Uso: /plantilla Nombre | Texto con {perfil} {edad} {nacionalidad} {Lista_servicios} {descripcion} {username}');
+    if (a.length < 2) return ctx.reply('Uso: /plantilla Nombre | Texto con {perfil} {username} {edad} {nacionalidad} {Lista_servicios} {descripcion} {votosBueno} {votosMalo} {total_votos} {canal_free} {contacto}');
     const name = a.shift().trim(), text = a.join('|').trim();
     const t = normalizeTemplate(name, text, ctx.message.entities || []);
     setPending(ctx.from.id, { type:'template_confirm', template:t });
