@@ -45,7 +45,7 @@ function cleanCustomEmojiText(text, entities = [], baseOffset = 0) {
     .filter(r => r.start >= 0 && r.end <= value.length)
     .sort((a,b) => b.start - a.start);
   for (const r of ranges) value = value.slice(0, r.start) + value.slice(r.end);
-  return value.replace(/^[\\s]+|[\\s]+$/g, '').replace(/[ \\t]{2,}/g, ' ');
+  return value.replace(/^\s+|\s+$/g, '').replace(/[ \t]{2,}/g, ' ');
 }
 
 function buildButtonConfig(all, key, section, extra = {}) {
