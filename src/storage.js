@@ -83,4 +83,33 @@ async function publishModelPhoto(telegram, modelId, fileId, caption = '') {
   return { message:sent, fileId:savedFileId, ...record };
 }
 
+async function publishTemplatePhoto(telegram, templateId, fileId, caption = '') {
+  const id = String(templateId || '').trim();
+  if (!id) throw new Error('Falta ID de plantilla.');
+  if (!fileId) throw new Error('Falta file_id para guardar en Storage.');
+  const topic = await getTopic('plantillas');
+  const storage = await getStorage();
+  const storageKey = 'plantilla_' + id;
+  const oldMedia = storage.media?.[storageKey];
+  const sent = await telegram.sendPhoto(topic.groupId, fileId, {
+    message_thread_id: topic.threadId,
+    caption: caption || undefined
+  });
+  const savedFileId = sent.photo?.at(-1)?.file_id || fileId;
+  const record = {
+    file_id: savedFileId,
+    message_id: sent.message_id,
+    message_thread_id: topic.threadId,
+    group_id: topic.groupId,
+    template_id: id,
+    caption: caption || '',
+    actualizado: new Date().toISOString()
+  };
+  await saveStorageIndex(storageKey, record);
+  if (oldMedia?.message_id && String(oldMedia.message_id) !== String(sent.message_id)) {
+    await deleteStorageMessage(telegram, oldMedia);
+  }
+  return { message: sent, fileId: savedFileId, ...record };
+}
+
 module.exports = { STORAGE_TOPICS, getTopic, publishPhotoToStorage, publishDocumentToStorage, publishTextToStorage, publishModelPhoto, deleteStorageMessage };
