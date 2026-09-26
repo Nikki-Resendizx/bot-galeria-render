@@ -712,39 +712,6 @@ module.exports = bot => {
         );
       }
 
-      if (action === 'template_confirm') {
-        const pendingTemplate = getPending(ctx.from.id);
-        const tpl = pendingTemplate?.type === 'template_confirm' ? pendingTemplate.template : null;
-        if (!tpl) {
-          clearPending(ctx.from.id);
-          return ctx.reply('❌ La vista previa expiró. Pulsa ➕ Crear nuevamente.');
-        }
-        if (text.toLowerCase() !== 'confirmar') {
-          return ctx.reply('Usa los botones de la vista previa: ✅ Guardar plantilla o ❌ Cancelar.', { parse_mode: 'HTML' });
-        }
-        await savePlantilla(tpl.id, tpl);
-        let storageOk = false;
-        try {
-          await publishTextToStorage(
-            ctx.telegram, 'plantillas',
-            '📝 PLANTILLA GUARDADA\nID: ' + tpl.id + '\nNombre: ' + tpl.nombre +
-              '\nFormato: ' + tpl.formato + '\n\n' + tpl.texto,
-            { parse_mode: 'HTML' }
-          );
-          storageOk = true;
-        } catch (storageError) {
-          console.error('PLANTILLA: Storage:', storageError.message || storageError);
-        }
-        clearAllPending(ctx.from.id);
-        return ctx.reply(
-          '✅ Plantilla <b>' + escapeHtml(tpl.nombre) + '</b> guardada.\n' +
-          '🆔 <code>' + escapeHtml(tpl.id) + '</code>\n' +
-          '📦 Telegram Storage: ' + (storageOk ? '✅ publicada en 📝 PLANTILLAS' : '⚠️ no publicada'),
-          { parse_mode: 'HTML' }
-        );
-      }
-
-
       if (action === 'template_delete') {
         await deletePlantilla(text);
         clearPending(ctx.from.id);
