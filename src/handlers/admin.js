@@ -572,7 +572,7 @@ module.exports = bot => {
         if (text.toLowerCase() !== 'confirmar') {
           return ctx.reply('Escribe <code>CONFIRMAR</code> para guardar o <code>/cancel</code> para cancelar.', { parse_mode: 'HTML' });
         }
-        const tpl = action === 'template_confirm' ? getPending(ctx.from.id)?.template : null;
+        const tpl = global.__templatePending?.get(String(ctx.from.id));
         if (!tpl) return ctx.reply('❌ La vista previa expiró. Vuelve a crear la plantilla.');
         await require('../config/db').savePlantilla(tpl.id, tpl);
         let storageOk = false;
@@ -588,6 +588,7 @@ module.exports = bot => {
           console.error('PLANTILLA: Storage:', storageError.message || storageError);
         }
         clearPending(ctx.from.id);
+        global.__templatePending?.delete(String(ctx.from.id));
         return ctx.reply(
           '✅ Plantilla <b>' + escapeHtml(tpl.nombre) + '</b> guardada.\\n' +
           '🆔 <code>' + escapeHtml(tpl.id) + '</code>\\n' +
@@ -606,15 +607,13 @@ module.exports = bot => {
         const converted = textoConPremiumToHtml(plantillaText, entities);
         const detected = prepararTextoTelegram(plantillaText, entities);
         const id = slugify(nombre);
-        setPending(ctx.from.id, {
-          type: 'template_confirm',
-          template: {
+        global.__templatePending = global.__templatePending || new Map();
+        global.__templatePending.set(String(ctx.from.id), {
             id, nombre, texto: converted.html, texto_original: plantillaText,
             entities, premium_emoji_ids: converted.ids,
             formato: detected.formato,
             parse_mode: converted.ids.length ? 'HTML' : (detected.parse_mode || null),
-            actualizado: new Date().toISOString()
-          }
+          actualizado: new Date().toISOString()
         });
         return ctx.reply(
           '👁️ <b>VISTA PREVIA DE PLANTILLA</b>\\n\\n' +
