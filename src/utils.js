@@ -147,6 +147,6 @@ function prepararTextoTelegram(text,entities=[]){
   if(formato==='MarkdownV2') return {text:source,entities:undefined,parse_mode:'MarkdownV2',formato};
   return {text:source,entities:undefined,parse_mode:undefined,formato};
 }
-function slugify(v){return String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)||('plantilla_'+Date.now());}
+function slugify(v){return String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)||('plantilla_'+Date.now());}
 
 module.exports={isAdmin,escapeHtml,replaceVars,TEMPLATE_VARIABLES,templateVariablesHelp,textoConPremiumToHtml,detectarFormatoTelegram,prepararTextoTelegram,slugify};
