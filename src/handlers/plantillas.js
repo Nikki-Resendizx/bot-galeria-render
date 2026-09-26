@@ -5,11 +5,7 @@ const {
 } = require('../config/db');
 const { publishPhotoToStorage, publishTextToStorage } = require('../storage');
 
-const pending = new Map();
-
-function setPending(id, data) { pending.set(String(id), data); }
-function getPending(id) { return pending.get(String(id)); }
-function clearPending(id) { pending.delete(String(id)); }
+const { setPending, getPending, clearPending } = require('../pending');
 
 function normalizeTemplate(name, text, entities = []) {
   const id = slugify(name);
@@ -32,13 +28,6 @@ async function publishTemplate(telegram, template, action = 'CREADA') {
 }
 
 module.exports = bot => {
-  bot.command('cancel', async ctx => {
-    if (!await isAdmin(ctx.from.id)) return;
-    const had = !!getPending(ctx.from.id);
-    clearPending(ctx.from.id);
-    return ctx.reply(had ? '❌ Operación de plantilla cancelada. No se guardó nada.' : 'ℹ️ No hay una operación de plantilla pendiente.');
-  });
-
   bot.command('bienvenida', async ctx => {
     if (!await isAdmin(ctx.from.id)) return;
     const t = ctx.message.text.replace(/^\/bienvenida\s*/,'').trim();
