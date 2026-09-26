@@ -156,16 +156,28 @@ async function sendModelo(ctx, id) {
   const media = await getModelBotMedia(id);
   const fileId = media?.file_id;
 
+  const baseWebAppUrl = String(process.env.WEBAPP_URL || 'https://galeria-verifiedmodels.pages.dev').replace(/\\/$/, '');
+  const perfilWebAppUrl = baseWebAppUrl + '?startapp=m_' + encodeURIComponent(id);
+
   const buttons = [
-    [await webAppButton('perfil_webapp', (process.env.WEBAPP_URL || '') + '?startapp=m_' + encodeURIComponent(id), { section: 'plantilla', style: 'primary' })],
+    [await webAppButton('perfil_webapp', perfilWebAppUrl, { section: 'plantilla', style: 'primary' })],
     [
       await button('votosbueno', { section: 'plantilla', callback_data: 'voto_bueno:' + id, style: 'success' }),
       await button('votosmalos', { section: 'plantilla', callback_data: 'voto_malo:' + id, style: 'danger' })
     ]
   ];
 
-  const canalUrlModel = model.canalFree || model.canal_free || process.env.CANAL_FREE_URL || '';
-  const contactoUrlModel = model.contacto || (model.username ? 'https://t.me/' + String(model.username).replace(/^@/, '') : '');
+  const normalizeTelegramUrl = value => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (/^https?:\\/\\//i.test(raw)) return raw;
+    if (/^t\\.me\\//i.test(raw)) return 'https://' + raw;
+    if (/^@?[A-Za-z0-9_]{3,64}$/.test(raw)) return 'https://t.me/' + raw.replace(/^@/, '');
+    return '';
+  };
+  const canalUrlModel = normalizeTelegramUrl(model.canalFree || model.canal_free || process.env.CANAL_FREE_URL);
+  const contactoUrlModel = normalizeTelegramUrl(model.contacto) ||
+    normalizeTelegramUrl(model.username);
   const contactRow = [];
   if (canalUrlModel) contactRow.push(await urlButton('canal_free', canalUrlModel, { section: 'plantilla', style: 'primary' }));
   if (contactoUrlModel) contactRow.push(await urlButton('contactar', contactoUrlModel, { section: 'plantilla', style: 'primary' }));
