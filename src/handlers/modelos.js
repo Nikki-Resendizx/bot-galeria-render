@@ -1,6 +1,6 @@
 const { getModelos, getModelo, voteModelo, getModelBotMedia, saveModelBotMedia } = require('../config/db');
 const { getConfig } = require('../cache');
-const { escapeHtml, replaceVars } = require('../utils');
+const { escapeHtml, replaceVars, isAdmin } = require('../utils');
 const { Markup } = require('telegraf');
 const { button, urlButton, webAppButton } = require('../buttons');
 const { publishModelPhoto, deleteStorageMessage } = require('../storage');
@@ -242,6 +242,7 @@ const registerModelos = bot => {
   });
 
   bot.command('foto_modelo', async ctx => {
+    if (!await isAdmin(ctx.from?.id)) return ctx.reply('❌ Sin permiso.');
     const id = String(ctx.message.text || '').trim().split(/\s+/)[1];
     if (!id) return ctx.reply('❌ Usa: <code>/foto_modelo ID</code>', { parse_mode:'HTML' });
     const model = await getModelo(id);
@@ -252,6 +253,7 @@ const registerModelos = bot => {
   });
 
   bot.on(['photo','document'], async ctx => {
+    if (!await isAdmin(ctx.from?.id)) return;
     const caption = String(ctx.message.caption || '').trim();
     const match = caption.match(/^\/foto_modelo(?:\s+|$)(\S+)/i);
     const pending = global.__modelPhotoPending?.get(String(ctx.from?.id));
