@@ -608,6 +608,7 @@ module.exports = bot => {
         const detected = prepararTextoTelegram(plantillaText, entities);
         const id = slugify(nombre);
         global.__templatePending = global.__templatePending || new Map();
+        setPending(ctx.from.id, 'template_confirm');
         global.__templatePending.set(String(ctx.from.id), {
             id, nombre, texto: converted.html, texto_original: plantillaText,
             entities, premium_emoji_ids: converted.ids,
