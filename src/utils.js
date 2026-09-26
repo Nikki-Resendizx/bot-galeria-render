@@ -6,24 +6,26 @@ function replaceVars(text,ctx,model){model=model||{};const f=ctx?.from||{},name=
 
 function textoConPremiumToHtml(text, entities = []) {
   const source = String(text || '');
-  const customs = entities
-    .filter(e => e.type === 'custom_emoji' && e.custom_emoji_id)
-    .sort((a, b) => Number(b.offset || 0) - Number(a.offset || 0));
-
-  let html = source;
-  for (const e of customs) {
-    const offset = Number(e.offset || 0);
-    const length = Number(e.length || 0);
-    const base = source.substring(offset, offset + length);
-    html =
-      html.substring(0, offset) +
-      '<tg-emoji emoji-id="' + escapeHtml(e.custom_emoji_id) + '">' +
-      escapeHtml(base) +
-      '</tg-emoji>' +
-      html.substring(offset + length);
-  }
-
-  return { html, ids: customs.map(e => String(e.custom_emoji_id)) };
+  const customs = (Array.isArray(entities) ? entities : []).filter(e => e.type === 'custom_emoji' && e.custom_emoji_id).map(e => ({ offset: Number(e.offset || 0), length: Number(e.length || 0), id: String(e.custom_emoji_id) })).sort((a,b) => a.offset-b.offset);
+  if (!customs.length) return { html: escapeHtml(source), ids: [] };
+  let html = '', cursor = 0;
+  for (const e of customs) { if (e.offset < cursor || e.offset > source.length) continue; html += escapeHtml(source.slice(cursor,e.offset)); const visible=source.slice(e.offset,e.offset+e.length); html += '<tg-emoji emoji-id="'+escapeHtml(e.id)+'">'+escapeHtml(visible)+'</tg-emoji>'; cursor=e.offset+e.length; }
+  html += escapeHtml(source.slice(cursor));
+  return { html, ids: customs.map(e => e.id) };
+}
+function detectarFormatoTelegram(text, entities = []) {
+  if (Array.isArray(entities) && entities.some(e => e.type === 'custom_emoji')) return 'entities';
+  const s=String(text||'');
+  if (/<(?:b|strong|i|em|u|s|strike|del|code|pre|a\\b|tg-emoji\\b)[^>]*>/i.test(s)) return 'HTML';
+  if (/\\*\\*[^*]+\\*\\*|__[^_]+__|~~[^~]+~~|\\[[^\\]]+\\]\\([^)]*\\)/.test(s)) return 'MarkdownV2';
+  return 'plain';
+}
+function prepararTextoTelegram(text, entities = []) {
+  const source=String(text||''), formato=detectarFormatoTelegram(source,entities);
+  if(formato==='entities') return {text:source,entities,parse_mode:undefined,formato};
+  if(formato==='HTML') return {text:source,entities:undefined,parse_mode:'HTML',formato};
+  if(formato==='MarkdownV2') return {text:source,entities:undefined,parse_mode:'MarkdownV2',formato};
+  return {text:source,entities:undefined,parse_mode:undefined,formato};
 }
 function slugify(v){return String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)||('plantilla_'+Date.now());}
 module.exports={isAdmin,escapeHtml,replaceVars,textoConPremiumToHtml,detectarFormatoTelegram,prepararTextoTelegram,slugify};
