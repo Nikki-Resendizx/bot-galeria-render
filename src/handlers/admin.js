@@ -8,7 +8,7 @@ const {
   deletePlantilla, deleteModelo, resetModeloVotes,
   saveBotMedia, deleteBotMedia, deleteModelBotMedia
 } = require('../config/db');
-const { publishPhotoToStorage, publishTextToStorage } = require('../storage');
+const { publishPhotoToStorage, publishTextToStorage, deleteStorageMessage } = require('../storage');
 const { prepararTextoTelegram } = require('../utils');
 
 const { setPending, clearPending, getPending, clearAllPending } = require('../pending');
@@ -554,7 +554,8 @@ module.exports = bot => {
       if (action === 'model_photo_delete') {
         const model = await require('../config/db').getModelo(text);
         if (!model) return ctx.reply('❌ Modelo no encontrada.');
-        await deleteModelBotMedia(text);
+        const oldMedia = await deleteModelBotMedia(text);
+        if (oldMedia?.message_id) await deleteStorageMessage(ctx.telegram, oldMedia);
         clearPending(ctx.from.id);
         return ctx.reply('🗑️ Foto de <b>' + escapeHtml(model.perfil || text) + '</b> eliminada del bot.', { parse_mode: 'HTML' });
       }
