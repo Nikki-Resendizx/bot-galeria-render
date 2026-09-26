@@ -355,17 +355,17 @@ module.exports = bot => {
     }
 
     if (a === 'adm_usuarios') {
-      return ctx.editMessageText('👥 <b>USUARIOS</b>\n\nUsuarios registrados por /start. Desde aquí puedes consultar el registro.', { parse_mode: 'HTML', ...sectionKeyboard('usuarios') });
+      return ctx.editMessageText(
+        '👥 <b>USUARIOS</b>\n\nLos registros se guardan en el tópico <b>👥 USUARIOS</b> del Telegram Store.\n\nEl bot ya no escribe usuarios en Firebase.',
+        { parse_mode: 'HTML', ...sectionKeyboard('usuarios') }
+      );
     }
 
     if (a === 'adm_user_list') {
-      const u = await getUsers();
-      const rows = u.slice(0, 100).map(x =>
-        '• <code>' + escapeHtml(x.id) + '</code> — ' +
-        escapeHtml(x.username ? '@' + x.username : (x.first_name || 'Sin nombre')) +
-        (x.baneado ? ' 🔴' : ' 🟢')
+      return ctx.reply(
+        '📋 <b>USUARIOS</b>\n\nEl historial de usuarios está en el tópico <b>👥 USUARIOS</b> del Telegram Store.\n\nℹ️ Telegram Bot API no permite leer el historial completo del topic, por lo que el panel no inventa una lista ni consulta Firebase.',
+        { parse_mode: 'HTML', ...sectionKeyboard('usuarios') }
       );
-      return ctx.reply('📋 <b>USUARIOS</b>\n\n' + (rows.join('\n') || 'Sin usuarios'), { parse_mode: 'HTML', ...sectionKeyboard('usuarios') });
     }
 
     if (a === 'adm_admins') {
