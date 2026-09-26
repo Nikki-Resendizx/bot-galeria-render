@@ -206,7 +206,7 @@ async function sendModelo(ctx, id) {
       // Así nunca se separa la foto del perfil por un problema de formato.
       try {
         const plainCaption = String(texto || '')
-          .replace(/<tg-emoji[^>]*>([\\s\\S]*?)<\\/tg-emoji>/gi, '$1')
+          .replace(/<tg-emoji[^>]*>([\s\S]*?)<\/tg-emoji>/gi, '$1')
           .replace(/<[^>]+>/g, '')
           .slice(0, 1024);
         return await ctx.replyWithPhoto(fileId, {
