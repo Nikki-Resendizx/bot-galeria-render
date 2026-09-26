@@ -34,8 +34,18 @@ function splitButtonKey(key) {
   return { section, key: raw.slice(dot + 1) };
 }
 
-function cleanCustomEmojiText(text, removeFirst = true) {
-  return String(text || '').trim();
+function cleanCustomEmojiText(text, entities = [], baseOffset = 0) {
+  let value = String(text || '');
+  const ranges = (entities || [])
+    .filter(e => e.type === 'custom_emoji' && e.custom_emoji_id)
+    .map(e => ({
+      start: Number(e.offset || 0) - Number(baseOffset || 0),
+      end: Number(e.offset || 0) - Number(baseOffset || 0) + Number(e.length || 0)
+    }))
+    .filter(r => r.start >= 0 && r.end <= value.length)
+    .sort((a,b) => b.start - a.start);
+  for (const r of ranges) value = value.slice(0, r.start) + value.slice(r.end);
+  return value.replace(/^[\\s]+|[\\s]+$/g, '').replace(/[ \\t]{2,}/g, ' ');
 }
 
 function buildButtonConfig(all, key, section, extra = {}) {
@@ -89,5 +99,6 @@ module.exports = {
   normalizeStyle,
   normalizeButtonKey,
   splitButtonKey,
-  buildButtonConfig
+  buildButtonConfig,
+  cleanCustomEmojiText
 };
