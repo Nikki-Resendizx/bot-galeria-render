@@ -12,8 +12,7 @@ function getModelName(m) {
 // Limitamos el texto y usamos una columna para que la fila nunca se expanda
 // más que el ancho disponible de la foto/caption en los clientes de Telegram.
 function getButtonModelName(m) {
-  const name = String(getModelName(m)).trim();
-  return name.length > 22 ? name.slice(0, 21).trimEnd() + '…' : name;
+  return String(getModelName(m)).trim();
 }
 
 async function sendLista(ctx) {
