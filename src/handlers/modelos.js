@@ -156,7 +156,7 @@ async function sendModelo(ctx, id) {
   const media = await getModelBotMedia(id);
   const fileId = media?.file_id;
 
-  const baseWebAppUrl = String(process.env.WEBAPP_URL || 'https://galeria-verifiedmodels.pages.dev').replace(/\\/$/, '');
+  const baseWebAppUrl = String(process.env.WEBAPP_URL || 'https://galeria-verifiedmodels.pages.dev').replace(/\/$/, '');
   const perfilWebAppUrl = baseWebAppUrl + '?startapp=m_' + encodeURIComponent(id);
 
   const buttons = [
@@ -170,8 +170,8 @@ async function sendModelo(ctx, id) {
   const normalizeTelegramUrl = value => {
     const raw = String(value || '').trim();
     if (!raw) return '';
-    if (/^https?:\\/\\//i.test(raw)) return raw;
-    if (/^t\\.me\\//i.test(raw)) return 'https://' + raw;
+    if (/^https?:\/\//i.test(raw)) return raw;
+    if (/^t\.me\//i.test(raw)) return 'https://' + raw;
     if (/^@?[A-Za-z0-9_]{3,64}$/.test(raw)) return 'https://t.me/' + raw.replace(/^@/, '');
     return '';
   };
