@@ -76,7 +76,14 @@ async function getModelos() {
 }
 
 async function deleteModelo(id) {
-  await db.collection('modelos').doc(String(id)).delete();
+  const ref = db.collection('modelos').doc(String(id));
+  const votes = await ref.collection('votos').get();
+  if (!votes.empty) {
+    const batch = db.batch();
+    votes.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+  }
+  await ref.delete();
   await db.collection('config').doc('storage').collection('modelos').doc(String(id)).delete().catch(() => {});
 }
 
