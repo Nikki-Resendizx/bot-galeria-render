@@ -19,7 +19,6 @@ function hasPending(userId) {
 function clearAllPending(userId) {
   const key = String(userId);
   pending.delete(key);
-  if (global.__templatePending?.delete) global.__templatePending.delete(key);
 }
 
 module.exports = { setPending, getPending, clearPending, hasPending, clearAllPending };
