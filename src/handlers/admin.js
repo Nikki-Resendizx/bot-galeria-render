@@ -568,6 +568,34 @@ module.exports = bot => {
         return ctx.reply('🗑️ Foto de <b>' + escapeHtml(model.perfil || text) + '</b> eliminada del bot.', { parse_mode: 'HTML' });
       }
 
+      if (action === 'template_confirm') {
+        if (text.toLowerCase() !== 'confirmar') {
+          return ctx.reply('Escribe <code>CONFIRMAR</code> para guardar o <code>/cancel</code> para cancelar.', { parse_mode: 'HTML' });
+        }
+        const tpl = action === 'template_confirm' ? getPending(ctx.from.id)?.template : null;
+        if (!tpl) return ctx.reply('❌ La vista previa expiró. Vuelve a crear la plantilla.');
+        await require('../config/db').savePlantilla(tpl.id, tpl);
+        let storageOk = false;
+        try {
+          await publishTextToStorage(
+            ctx.telegram, 'plantillas',
+            '📝 PLANTILLA GUARDADA\\nID: ' + tpl.id + '\\nNombre: ' + tpl.nombre +
+              '\\nFormato: ' + tpl.formato + '\\n\\n' + tpl.texto,
+            { parse_mode: 'HTML' }
+          );
+          storageOk = true;
+        } catch (storageError) {
+          console.error('PLANTILLA: Storage:', storageError.message || storageError);
+        }
+        clearPending(ctx.from.id);
+        return ctx.reply(
+          '✅ Plantilla <b>' + escapeHtml(tpl.nombre) + '</b> guardada.\\n' +
+          '🆔 <code>' + escapeHtml(tpl.id) + '</code>\\n' +
+          '📦 Telegram Storage: ' + (storageOk ? '✅ publicada en 📝 PLANTILLAS' : '⚠️ no publicada'),
+          { parse_mode: 'HTML' }
+        );
+      }
+
       if (action === 'template_create') {
         const parts = text.split('|');
         if (parts.length < 2) return ctx.reply('❌ Formato: Nombre | Texto');
