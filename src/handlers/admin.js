@@ -197,6 +197,7 @@ module.exports = bot => {
     if (!await isAdmin(ctx.from.id)) return;
     const hadPending = !!getPending(ctx.from.id);
     clearPending(ctx.from.id);
+    global.__templatePending?.delete(String(ctx.from.id));
     return ctx.reply(hadPending ? '❌ Operación cancelada. No se guardó ningún cambio pendiente.' : 'ℹ️ No hay ninguna operación pendiente para cancelar.');
   });
 
