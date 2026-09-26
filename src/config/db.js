@@ -19,25 +19,24 @@ async function saveConfig(data) {
   global.__verifiedmodelsConfigVersion = Date.now();
 }
 
-async function getUser(id) {
-  const s = await db.collection('usuarios').doc(String(id)).get();
-  return s.exists ? Object.assign({ id: s.id }, s.data()) : null;
+async function getUser() {
+  // Los usuarios ya no se persisten en Firebase.
+  return null;
 }
 
-async function saveUser(id, info) {
-  await db.collection('usuarios').doc(String(id)).set(
-    Object.assign({}, info, { id: String(id), actualizado: admin.firestore.FieldValue.serverTimestamp() }),
-    { merge: true }
-  );
+async function saveUser() {
+  // El registro de usuarios vive en Telegram Storage / 👥 USUARIOS.
+  return false;
 }
 
 async function getUsers() {
-  const s = await db.collection('usuarios').get();
-  return s.docs.map(d => Object.assign({ id: d.id }, d.data()));
+  // Telegram Bot API no permite leer el historial del topic como una colección.
+  // Por eso el panel no debe fingir que existe una lista de usuarios en Firebase.
+  return [];
 }
 
-async function setUserStatus(id, data) {
-  await db.collection('usuarios').doc(String(id)).set(data, { merge: true });
+async function setUserStatus() {
+  return false;
 }
 
 async function getPlantillas() {
@@ -170,11 +169,9 @@ async function deleteBotMedia(key) {
   await deleteStorageIndex(normalizedKey);
 }
 async function deleteModelBotMedia(modelId) {
-  const ref = db.collection('config').doc('storage').collection('modelos').doc(String(modelId));
-  const snap = await ref.get();
-  const data = snap.exists ? snap.data() : null;
-  await ref.delete();
-  return data;
+  const key = 'modelo_' + String(modelId);
+  await deleteStorageIndex(key);
+  return true;
 }
 async function saveBotMedia(key, fileId) {
   const normalizedKey = String(key);
@@ -211,13 +208,16 @@ async function deleteStorageIndex(key) {
 }
 
 async function saveModelBotMedia(modelId, data) {
-  await db.collection('config').doc('storage').collection('modelos').doc(String(modelId))
-    .set(Object.assign({}, data, { actualizado: new Date().toISOString() }), { merge: true });
+  await saveStorageIndex('modelo_' + String(modelId), Object.assign({}, data, {
+    model_id: String(modelId)
+  }));
 }
 
 async function getModelBotMedia(modelId) {
-  const s = await db.collection('config').doc('storage').collection('modelos').doc(String(modelId)).get();
-  return s.exists ? s.data() : null;
+  const storage = await getStorage();
+  const indexed = storage.media?.['modelo_' + String(modelId)];
+  if (indexed) return indexed;
+  return null;
 }
 
 module.exports = {
