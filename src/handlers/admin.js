@@ -196,11 +196,11 @@ module.exports = bot => {
 
     if (a === 'adm_home') return showPanel(ctx, true);
     if (a === 'adm_tpl_save' || a === 'adm_tpl_cancel') {
-      const key = String(ctx.from.id);
-      const tpl = global.__templatePending?.get(key);
+      const pendingTemplate = getPending(ctx.from.id);
+      const tpl = pendingTemplate?.type === 'template_confirm' ? pendingTemplate.template : null;
       if (a === 'adm_tpl_cancel') {
         clearAllPending(ctx.from.id);
-        if (global.__templateWizard?.delete) global.__templateWizard.delete(key);
+
         return ctx.editMessageText('❌ Creación de plantilla cancelada. No se guardó ningún cambio.');
       }
       if (!tpl) return ctx.reply('❌ La vista previa expiró. Pulsa ➕ Crear nuevamente.');
@@ -303,8 +303,6 @@ module.exports = bot => {
     }
 
     if (a === 'adm_template_create') {
-      global.__templateWizard = global.__templateWizard || new Map();
-      global.__templateWizard.delete(String(ctx.from.id));
       return promptText(ctx, ctx.from.id, 'template_name',
         '1️⃣ <b>Nombre de la plantilla</b>\n\nEscribe solamente el nombre.\n\nEjemplo: <code>Perfil de modelo</code>\n\nDespués te pediré el contenido de la plantilla.\n❌ Puedes cancelar con /cancel.');
     }
@@ -604,7 +602,8 @@ module.exports = bot => {
         if (text.toLowerCase() !== 'confirmar') {
           return ctx.reply('Escribe <code>CONFIRMAR</code> para guardar o <code>/cancel</code> para cancelar.', { parse_mode: 'HTML' });
         }
-        const tpl = global.__templatePending?.get(String(ctx.from.id));
+        const pendingTemplate = getPending(ctx.from.id);
+        const tpl = pendingTemplate?.type === 'template_confirm' ? pendingTemplate.template : null;
         if (!tpl) return ctx.reply('❌ La vista previa expiró. Vuelve a crear la plantilla.');
         await require('../config/db').savePlantilla(tpl.id, tpl);
         let storageOk = false;
@@ -640,9 +639,7 @@ module.exports = bot => {
         if (existing[id]) {
           return ctx.reply('❌ Ya existe una plantilla con el ID <code>' + escapeHtml(id) + '.</code>\nElige otro nombre.', { parse_mode: 'HTML' });
         }
-        global.__templateWizard = global.__templateWizard || new Map();
-        global.__templateWizard.set(String(ctx.from.id), { nombre: name, id });
-        setPending(ctx.from.id, 'template_content');
+        setPending(ctx.from.id, { type: 'template_content', wizard: { nombre: name, id } });
         return ctx.reply(
           '2️⃣ <b>Contenido de la plantilla</b>\n\n' +
           'Ahora envía el texto completo usando las variables que necesites y tus emojis Premium.\n\n' +
@@ -654,7 +651,8 @@ module.exports = bot => {
       }
 
       if (action === 'template_content') {
-        const wizard = global.__templateWizard?.get(String(ctx.from.id));
+        const pending = getPending(ctx.from.id);
+        const wizard = pending?.type === 'template_content' ? pending.wizard : null;
         if (!wizard) {
           clearPending(ctx.from.id);
           return ctx.reply('❌ La creación expiró. Pulsa ➕ Crear nuevamente.');
@@ -674,10 +672,7 @@ module.exports = bot => {
           parse_mode: converted.ids.length ? 'HTML' : (detected.parse_mode || null),
           actualizado: new Date().toISOString()
         };
-        global.__templateWizard.delete(String(ctx.from.id));
-        global.__templatePending = global.__templatePending || new Map();
-        global.__templatePending.set(String(ctx.from.id), template);
-        setPending(ctx.from.id, 'template_confirm');
+        setPending(ctx.from.id, { type: 'template_confirm', template });
         return ctx.reply(
           '3️⃣ <b>VISTA PREVIA DE LA PLANTILLA</b>\n\n' +
           converted.html +
