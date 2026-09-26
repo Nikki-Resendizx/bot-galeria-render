@@ -185,6 +185,7 @@ module.exports = bot => {
     if (!await isAdmin(ctx.from.id)) return;
     const hadPending = !!getPending(ctx.from.id);
     clearAllPending(ctx.from.id);
+    if (global.__templateWizard?.delete) global.__templateWizard.delete(String(ctx.from.id));
     return ctx.reply(hadPending ? '❌ Operación cancelada. No se guardó ningún cambio pendiente.' : 'ℹ️ No hay ninguna operación pendiente para cancelar.');
   });
 
@@ -194,6 +195,43 @@ module.exports = bot => {
     await ctx.answerCbQuery();
 
     if (a === 'adm_home') return showPanel(ctx, true);
+    if (a === 'adm_tpl_save' || a === 'adm_tpl_cancel') {
+      const key = String(ctx.from.id);
+      const tpl = global.__templatePending?.get(key);
+      if (a === 'adm_tpl_cancel') {
+        clearAllPending(ctx.from.id);
+        if (global.__templateWizard?.delete) global.__templateWizard.delete(key);
+        return ctx.editMessageText('❌ Creación de plantilla cancelada. No se guardó ningún cambio.');
+      }
+      if (!tpl) return ctx.reply('❌ La vista previa expiró. Pulsa ➕ Crear nuevamente.');
+      try {
+        await savePlantilla(tpl.id, tpl);
+        let storageOk = false;
+        try {
+          await publishTextToStorage(
+            ctx.telegram, 'plantillas',
+            '📝 PLANTILLA GUARDADA\nID: ' + tpl.id + '\nNombre: ' + tpl.nombre +
+              '\nFormato: ' + tpl.formato + '\n\n' + tpl.texto,
+            { parse_mode: 'HTML' }
+          );
+          storageOk = true;
+        } catch (storageError) {
+          console.error('PLANTILLA: Storage:', storageError.message || storageError);
+        }
+        clearAllPending(ctx.from.id);
+        return ctx.editMessageText(
+          '✅ <b>Plantilla guardada correctamente</b>\n\n' +
+          '📛 Nombre: <b>' + escapeHtml(tpl.nombre) + '</b>\n' +
+          '🆔 <code>' + escapeHtml(tpl.id) + '</code>\n' +
+          '📦 Telegram Storage: ' + (storageOk ? '✅ publicada en 📝 PLANTILLAS' : '⚠️ no publicada'),
+          { parse_mode: 'HTML' }
+        );
+      } catch (e) {
+        console.error('PLANTILLA: error guardando:', e);
+        return ctx.reply('❌ No pude guardar la plantilla: ' + escapeHtml(e.message || 'error'), { parse_mode: 'HTML' });
+      }
+    }
+
 
     if (a === 'adm_bienvenida') {
       return ctx.editMessageText(
@@ -265,8 +303,10 @@ module.exports = bot => {
     }
 
     if (a === 'adm_template_create') {
-      return promptText(ctx, ctx.from.id, 'template_create',
-        '➕ <b>Nueva plantilla</b>\n\nEscribe: <code>Nombre | Texto con {perfil} {edad} {nacionalidad} {servicios} {votosBueno} {votosMalo} {total_votos}</code>');
+      global.__templateWizard = global.__templateWizard || new Map();
+      global.__templateWizard.delete(String(ctx.from.id));
+      return promptText(ctx, ctx.from.id, 'template_name',
+        '1️⃣ <b>Nombre de la plantilla</b>\n\nEscribe solamente el nombre.\n\nEjemplo: <code>Perfil de modelo</code>\n\nDespués te pediré el contenido de la plantilla.\n❌ Puedes cancelar con /cancel.');
     }
 
     if (a === 'adm_template_list') {
@@ -588,35 +628,105 @@ module.exports = bot => {
         );
       }
 
-      if (action === 'template_create') {
-        const parts = text.split('|');
-        if (parts.length < 2) return ctx.reply('❌ Formato: Nombre | Texto');
-        const { slugify, textoConPremiumToHtml, prepararTextoTelegram } = require('../utils');
-        const nombre = parts.shift().trim();
-        const plantillaText = parts.join('|').trim();
-        const entities = ctx.message.entities || [];
-        const converted = textoConPremiumToHtml(plantillaText, entities);
-        const detected = prepararTextoTelegram(plantillaText, entities);
-        const id = slugify(nombre);
-        global.__templatePending = global.__templatePending || new Map();
-        setPending(ctx.from.id, 'template_confirm');
-        global.__templatePending.set(String(ctx.from.id), {
-            id, nombre, texto: converted.html, texto_original: plantillaText,
-            entities, premium_emoji_ids: converted.ids,
-            formato: detected.formato,
-            parse_mode: converted.ids.length ? 'HTML' : (detected.parse_mode || null),
-          actualizado: new Date().toISOString()
-        });
+      if (action === 'template_name') {
+        const name = text.trim();
+        if (name.length < 1 || name.length > 80) {
+          return ctx.reply('❌ El nombre debe tener entre 1 y 80 caracteres.');
+        }
+        const { slugify } = require('../utils');
+        const id = slugify(name);
+        if (!id) return ctx.reply('❌ Ese nombre no puede generar un ID válido. Usa letras o números.');
+        const existing = await getPlantillas();
+        if (existing[id]) {
+          return ctx.reply('❌ Ya existe una plantilla con el ID <code>' + escapeHtml(id) + '.</code>\nElige otro nombre.', { parse_mode: 'HTML' });
+        }
+        global.__templateWizard = global.__templateWizard || new Map();
+        global.__templateWizard.set(String(ctx.from.id), { nombre: name, id });
+        setPending(ctx.from.id, 'template_content');
         return ctx.reply(
-          '👁️ <b>VISTA PREVIA DE PLANTILLA</b>\\n\\n' +
-          converted.html +
-          '\\n\\n🆔 <code>' + escapeHtml(id) + '</code>' +
-          '\\n📐 Formato: <b>' + escapeHtml(detected.formato) + '</b>' +
-          '\\n💎 Emojis Premium: ' + (converted.ids.length ? '✅ ' + converted.ids.length : '❌') +
-          '\\n\\nEscribe <code>CONFIRMAR</code> para guardar o <code>/cancel</code> para cancelar.',
+          '2️⃣ <b>Contenido de la plantilla</b>\n\n' +
+          'Ahora envía el texto completo usando las variables que necesites y tus emojis Premium.\n\n' +
+          'Variables disponibles, entre otras:\n' +
+          '<code>{mencion}</code> <code>{perfil}</code> <code>{username}</code> <code>{usuario}</code> <code>{edad}</code> <code>{nacionalidad}</code> <code>{Lista_servicios}</code> <code>{descripcion}</code> <code>{votosBueno}</code> <code>{votosMalo}</code> <code>{canal_free}</code> <code>{contacto}</code>\n\n' +
+          '💎 Los emojis Premium reales se detectan automáticamente.\n✨ También se detecta automáticamente el formato de Telegram/HTML/Markdown.\n\n❌ /cancel para cancelar.',
           { parse_mode: 'HTML' }
         );
       }
+
+      if (action === 'template_content') {
+        const wizard = global.__templateWizard?.get(String(ctx.from.id));
+        if (!wizard) {
+          clearPending(ctx.from.id);
+          return ctx.reply('❌ La creación expiró. Pulsa ➕ Crear nuevamente.');
+        }
+        const { slugify, textoConPremiumToHtml, prepararTextoTelegram } = require('../utils');
+        const entities = ctx.message.entities || [];
+        const converted = textoConPremiumToHtml(text, entities);
+        const detected = prepararTextoTelegram(text, entities);
+        const template = {
+          id: wizard.id,
+          nombre: wizard.nombre,
+          texto: converted.html,
+          texto_original: text,
+          entities,
+          premium_emoji_ids: converted.ids,
+          formato: detected.formato,
+          parse_mode: converted.ids.length ? 'HTML' : (detected.parse_mode || null),
+          actualizado: new Date().toISOString()
+        };
+        global.__templateWizard.delete(String(ctx.from.id));
+        global.__templatePending = global.__templatePending || new Map();
+        global.__templatePending.set(String(ctx.from.id), template);
+        setPending(ctx.from.id, 'template_confirm');
+        return ctx.reply(
+          '3️⃣ <b>VISTA PREVIA DE LA PLANTILLA</b>\n\n' +
+          converted.html +
+          '\n\n🆔 <code>' + escapeHtml(template.id) + '</code>' +
+          '\n📛 Nombre: <b>' + escapeHtml(template.nombre) + '</b>' +
+          '\n📐 Formato: <b>' + escapeHtml(template.formato) + '</b>' +
+          '\n💎 Emojis Premium: ' + (converted.ids.length ? '✅ ' + converted.ids.length : '❌') +
+          '\n\n¿Guardar esta plantilla?',
+          {
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard([
+              [Markup.button.callback('✅ Guardar plantilla', 'adm_tpl_save')],
+              [Markup.button.callback('❌ Cancelar', 'adm_tpl_cancel')]
+            ])
+          }
+        );
+      }
+
+      if (action === 'template_confirm') {
+        const tpl = global.__templatePending?.get(String(ctx.from.id));
+        if (!tpl) {
+          clearPending(ctx.from.id);
+          return ctx.reply('❌ La vista previa expiró. Pulsa ➕ Crear nuevamente.');
+        }
+        if (text.toLowerCase() !== 'confirmar') {
+          return ctx.reply('Usa los botones de la vista previa: ✅ Guardar plantilla o ❌ Cancelar.', { parse_mode: 'HTML' });
+        }
+        await require('../config/db').savePlantilla(tpl.id, tpl);
+        let storageOk = false;
+        try {
+          await publishTextToStorage(
+            ctx.telegram, 'plantillas',
+            '📝 PLANTILLA GUARDADA\nID: ' + tpl.id + '\nNombre: ' + tpl.nombre +
+              '\nFormato: ' + tpl.formato + '\n\n' + tpl.texto,
+            { parse_mode: 'HTML' }
+          );
+          storageOk = true;
+        } catch (storageError) {
+          console.error('PLANTILLA: Storage:', storageError.message || storageError);
+        }
+        clearAllPending(ctx.from.id);
+        return ctx.reply(
+          '✅ Plantilla <b>' + escapeHtml(tpl.nombre) + '</b> guardada.\n' +
+          '🆔 <code>' + escapeHtml(tpl.id) + '</code>\n' +
+          '📦 Telegram Storage: ' + (storageOk ? '✅ publicada en 📝 PLANTILLAS' : '⚠️ no publicada'),
+          { parse_mode: 'HTML' }
+        );
+      }
+
 
       if (action === 'template_delete') {
         await deletePlantilla(text);
