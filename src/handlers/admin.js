@@ -654,6 +654,8 @@ module.exports = bot => {
       if (action === 'model_delete') {
         const model = await require('../config/db').getModelo(text);
         if (!model) return ctx.reply('❌ Modelo no encontrada.');
+        const oldMedia = await deleteModelBotMedia(text);
+        if (oldMedia?.message_id) await deleteStorageMessage(ctx.telegram, oldMedia);
         await deleteModelo(text);
         clearPending(ctx.from.id);
         return ctx.reply('🗑️ Modelo eliminada: <b>' + escapeHtml(model.perfil || text) + '</b>.', { parse_mode: 'HTML' });
