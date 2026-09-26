@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: bot-galeria-render
+    runtime: node
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_IDS
+        sync: false
+      - key: WEBAPP_URL
+        value: https://galeria-verifiedmodels.pages.dev
+      - key: CANAL_ID
+        value: "-1004377732507"
+      - key: CANAL_FREE_URL
+        sync: false
+      - key: STORAGE_GROUP_ID
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
