@@ -1,6 +1,9 @@
 const { db, admin } = require('../firebase');
 
 const botDoc = db.collection('config').doc('bot');
+let storageCache = null;
+let storageCacheTime = 0;
+const STORAGE_CACHE_TTL = 30000;
 
 async function getConfig() {
   const a = await botDoc.get();
@@ -245,11 +248,21 @@ async function saveTemplateMedia(id, fileId) {
 }
 
 async function getStorage() {
+  if (storageCache && Date.now() - storageCacheTime < STORAGE_CACHE_TTL) return storageCache;
   const s = await db.collection('config').doc('storage').get();
-  return s.exists ? (s.data() || {}) : {};
+  storageCache = s.exists ? (s.data() || {}) : {};
+  storageCacheTime = Date.now();
+  return storageCache;
+}
+
+function clearStorageCache() {
+  storageCache = null;
+  storageCacheTime = 0;
 }
 
 async function saveStorageIndex(key, data) {
+  storageCache = null;
+  storageCacheTime = 0;
   await db.collection('config').doc('storage').set({
     media: {
       [String(key)]: Object.assign({}, data, { actualizado: new Date().toISOString() })
@@ -258,6 +271,8 @@ async function saveStorageIndex(key, data) {
 }
 
 async function deleteStorageIndex(key) {
+  storageCache = null;
+  storageCacheTime = 0;
   const ref = db.collection('config').doc('storage');
   await ref.set({
     media: { [String(key)]: admin.firestore.FieldValue.delete() }
@@ -286,6 +301,6 @@ module.exports = {
   getBotMedia, saveBotMedia,
   getButtonConfig, saveButtonConfig,
   saveTemplateMedia,
-  getStorage, saveStorageIndex, deleteStorageIndex,
+  getStorage, clearStorageCache, saveStorageIndex, deleteStorageIndex,
   saveModelBotMedia, getModelBotMedia, deleteModelBotMedia
 };
