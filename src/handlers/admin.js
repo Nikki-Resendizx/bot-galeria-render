@@ -310,11 +310,13 @@ module.exports = bot => {
     }
 
     if (a === 'adm_template_list') {
-      const p = await getPlantillas();
-      const rows = Object.keys(p).map(id =>
-        '• <code>' + escapeHtml(id) + '</code> — ' + escapeHtml(p[id].nombre || id) +
-        (p[id].media_file_id ? ' 📸' : '')
-      );
+      const [p, config, storage] = await Promise.all([getPlantillas(), getConfig(), getStorage()]);
+      const active = String(config.plantilla_activa || '');
+      const rows = Object.keys(p).map(id => {
+        const hasPhoto = Boolean(storage.media?.['plantilla_' + id]?.file_id);
+        return '• ' + (id === active ? '🟢 ' : '') + '<code>' + escapeHtml(id) + '</code> — ' +
+          escapeHtml(p[id].nombre || id) + (hasPhoto ? ' 📸' : '') + (id === active ? ' · ACTIVA' : '');
+      });
       return ctx.reply('📋 <b>PLANTILLAS</b>\n\n' + (rows.join('\n') || 'Sin plantillas'), { parse_mode: 'HTML', ...sectionKeyboard('plantillas') });
     }
 
