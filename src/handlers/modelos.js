@@ -1,6 +1,6 @@
 const { getModelos, getModelo, voteModelo, getModelBotMedia, saveModelBotMedia } = require('../config/db');
 const { getConfig } = require('../cache');
-const { escapeHtml, replaceVars, isAdmin } = require('../utils');
+const { escapeHtml, replaceVars, isAdmin, prepararTextoTelegram } = require('../utils');
 const { Markup } = require('telegraf');
 const { button, urlButton, webAppButton } = require('../buttons');
 const { publishModelPhoto, deleteStorageMessage } = require('../storage');
@@ -149,6 +149,10 @@ async function sendModelo(ctx, id) {
   }
 
   const texto = replaceVars(plantilla, ctx, model);
+  // Las plantillas pueden llegar en HTML, MarkdownV2 o texto plano.
+  // No forzamos HTML: Telegram rechazaba algunas plantillas y terminaba
+  // mostrando el mensaje genérico "No pude abrir esta modelo".
+  const formato = prepararTextoTelegram(texto, []);
   const media = await getModelBotMedia(id);
   const fileId = media?.file_id;
 
@@ -177,19 +181,36 @@ async function sendModelo(ctx, id) {
   if (fileId) {
     try {
       return await ctx.replyWithPhoto(fileId, {
-        caption: texto,
-        parse_mode: 'HTML',
+        caption: formato.text,
+        ...(formato.parse_mode ? { parse_mode: formato.parse_mode } : {}),
         ...markup
       });
     } catch (e) {
-      console.error('MODELO: error enviando foto:', e.message || e);
+      console.error('MODELO: error enviando foto con formato', formato.formato, ':', e.message || e);
+      // Si Telegram rechaza el caption por formato, no impedimos abrir la modelo:
+      // enviamos la foto y el texto por separado.
+      try {
+        await ctx.replyWithPhoto(fileId);
+        return await ctx.reply(texto, {
+          ...(formato.parse_mode ? { parse_mode: formato.parse_mode } : {}),
+          ...markup
+        });
+      } catch (fallbackError) {
+        console.error('MODELO: fallback foto/texto falló:', fallbackError.message || fallbackError);
+      }
     }
   }
 
-  return ctx.reply(texto, {
-    parse_mode: 'HTML',
-    ...markup
-  });
+  try {
+    return await ctx.reply(texto, {
+      ...(formato.parse_mode ? { parse_mode: formato.parse_mode } : {}),
+      ...markup
+    });
+  } catch (e) {
+    console.error('MODELO: error enviando texto con formato', formato.formato, ':', e.message || e);
+    // Último recurso: texto plano para que el perfil siempre pueda abrirse.
+    return ctx.reply(String(texto).replace(/<[^>]*>/g, ''), markup);
+  }
 }
 
 const registerModelos = bot => {
