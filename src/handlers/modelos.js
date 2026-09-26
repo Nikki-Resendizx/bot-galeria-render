@@ -8,16 +8,13 @@ function getModelName(m) {
   return m.perfil || m.nombre || m.username || 'Modelo';
 }
 
-// Telegram no permite fijar un ancho CSS a los botones inline.
-// Limitamos el texto y usamos una columna para que la fila nunca se expanda
-// más que el ancho disponible de la foto/caption en los clientes de Telegram.
 function getButtonModelName(m) {
-  return String(getModelName(m)).trim();
+  // IMPORTANTE: el nombre se conserva exactamente como está registrado.
+  // No se recorta, no se trunca y no se reduce aunque sobresalga visualmente.
+  return String(getModelName(m));
 }
 
 async function sendLista(ctx) {
-  // RUTA CRÍTICA: la lista solo depende de Firestore + Telegram.
-  // No usamos config, HTML, fotos, emojis premium ni botones avanzados aquí.
   let list;
 
   try {
@@ -42,9 +39,6 @@ async function sendLista(ctx) {
     return ctx.reply('⏳ Aún no hay modelos registrados.');
   }
 
-  // Telegram limita callback_data a 64 bytes.
-  // Los IDs normales de Firestore caben de sobra; si algún ID es demasiado
-  // largo lo omitimos para evitar que Telegram rechace TODO el teclado.
   const keyboard = [];
   let row = [];
 
@@ -57,8 +51,12 @@ async function sendLista(ctx) {
       continue;
     }
 
+    // Filas de 2 modelos:
+    // posición 1 = azul / primary
+    // posición 2 = rojo / danger
     row.push({
       text: getButtonModelName(model) || 'Modelo',
+      style: row.length === 0 ? 'primary' : 'danger',
       callback_data: callback
     });
 
@@ -76,13 +74,41 @@ async function sendLista(ctx) {
     return ctx.reply('❌ Las modelos tienen IDs no válidos para los botones de Telegram.');
   }
 
-  // Solo botones estándar de Telegram. Nada externo puede bloquear la lista.
+  // Botones inferiores:
+  // 🟢 Canal Oficial
+  // 🔵 WebApp
+  // 🔴 Volver / Inicio
   keyboard.push([
-    { text: '↩️ Volver', callback_data: 'inicio' },
-    { text: '🏠 Inicio', callback_data: 'inicio' }
+    {
+      text: '🟢 Canal Oficial',
+      style: 'success',
+      url: 'https://t.me/VerifiedModels_VIP'
+    }
   ]);
 
-  const texto = '👑 GALERÍA\nElige una chica 👇';
+  const webAppUrl = process.env.WEBAPP_URL || 'https://galeria-verifiedmodels.pages.dev';
+  keyboard.push([
+    {
+      text: '🔵 WebApp',
+      style: 'primary',
+      web_app: { url: webAppUrl }
+    }
+  ]);
+
+  keyboard.push([
+    {
+      text: '🔴 Volver',
+      style: 'danger',
+      callback_data: 'inicio'
+    },
+    {
+      text: '🔴 Inicio',
+      style: 'danger',
+      callback_data: 'inicio'
+    }
+  ]);
+
+  const texto = '👑 GALERÍA\\nElige una chica 👇';
 
   try {
     return await ctx.reply(texto, {
@@ -95,7 +121,6 @@ async function sendLista(ctx) {
     return ctx.reply('❌ No pude mostrar la lista de modelos. Revisa los logs de Render.');
   }
 }
-
 async function sendModelo(ctx, id) {
   const model = await getModelo(id);
 
