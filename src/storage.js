@@ -74,4 +74,24 @@ async function publishDocumentToStorage(telegram, key, fileId, caption='') {
   return { message: sent, fileId };
 }
 
-module.exports = { publishPhotoToStorage, publishDocumentToStorage, publishTextToStorage };
+async function publishModelPhoto(telegram, modelId, fileId, caption = '') {
+  const storage = await getStorage();
+  const topic = storage.topics?.modelos;
+  const groupId = storage.group_id;
+  if (!groupId || !topic?.message_thread_id) throw new Error('El almacenamiento Telegram no está vinculado para: modelos');
+  const sent = await telegram.sendPhoto(groupId, fileId, { message_thread_id:Number(topic.message_thread_id), caption:caption || undefined });
+  return {
+    file_id: sent.photo?.at(-1)?.file_id || fileId,
+    message_id: sent.message_id,
+    message_thread_id:Number(topic.message_thread_id),
+    group_id:String(groupId),
+    caption:caption || '',
+    model_id:String(modelId)
+  };
+}
+async function deleteStorageMessage(telegram, media) {
+  if (!media?.group_id || !media?.message_id) return false;
+  try { await telegram.deleteMessage(String(media.group_id), Number(media.message_id)); return true; }
+  catch(e){ console.error('STORAGE: no se pudo borrar mensaje', media.message_id, e.message || e); return false; }
+}
+module.exports = { publishPhotoToStorage, publishDocumentToStorage, publishTextToStorage, publishModelPhoto, deleteStorageMessage };
