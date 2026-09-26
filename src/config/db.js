@@ -125,26 +125,15 @@ async function voteModelo(id, type, voterId) {
 }
 
 async function getBotMedia() {
-  const s = await botDoc.get();
-  if (!s.exists) return {};
-
-  const data = s.data() || {};
-  const media = data.media || {};
+  const storage = await getStorage();
+  const media = storage.media || {};
+  const bot = await botDoc.get();
+  const data = bot.exists ? (bot.data() || {}) : {};
 
   return {
     ...media,
-    bienvenida:
-      media.bienvenida ||
-      data.bienvenida_media ||
-      data.bienvenida_media_file_id ||
-      data.bienvenida_media_url ||
-      '',
-    galeria:
-      media.galeria ||
-      data.galeria_media ||
-      data.galeria_media_file_id ||
-      data.galeria_media_url ||
-      ''
+    bienvenida: media.bienvenida?.file_id || media.bienvenida || data.bienvenida_media || '',
+    galeria: media.galeria?.file_id || media.galeria || data.galeria_media || ''
   };
 }
 
@@ -178,18 +167,7 @@ async function saveButtonConfig(key, data) {
 
 async function deleteBotMedia(key) {
   const normalizedKey = String(key);
-  const payload = { media: { [normalizedKey]: admin.firestore.FieldValue.delete() } };
-  if (normalizedKey === 'bienvenida') {
-    payload.bienvenida_media = admin.firestore.FieldValue.delete();
-    payload.bienvenida_media_file_id = admin.firestore.FieldValue.delete();
-    payload.bienvenida_media_url = admin.firestore.FieldValue.delete();
-  }
-  if (normalizedKey === 'galeria') {
-    payload.galeria_media = admin.firestore.FieldValue.delete();
-    payload.galeria_media_file_id = admin.firestore.FieldValue.delete();
-    payload.galeria_media_url = admin.firestore.FieldValue.delete();
-  }
-  await botDoc.set(payload, { merge: true });
+  await deleteStorageIndex(normalizedKey);
 }
 async function deleteModelBotMedia(modelId) {
   const ref = db.collection('config').doc('storage').collection('modelos').doc(String(modelId));
@@ -200,32 +178,16 @@ async function deleteModelBotMedia(modelId) {
 }
 async function saveBotMedia(key, fileId) {
   const normalizedKey = String(key);
-  const value = String(fileId);
-
-  const payload = {
-    media: { [normalizedKey]: value }
-  };
-
-  if (normalizedKey === 'bienvenida') {
-    payload.bienvenida_media = value;
-    payload.bienvenida_media_file_id = value;
-    payload.bienvenida_media_url = value;
-  }
-
-  if (normalizedKey === 'galeria') {
-    payload.galeria_media = value;
-    payload.galeria_media_file_id = value;
-    payload.galeria_media_url = value;
-  }
-
-  await botDoc.set(payload, { merge: true });
+  const value = String(fileId || '').trim();
+  if (!value) throw new Error('Falta file_id');
+  await saveStorageIndex(normalizedKey, { file_id: value });
 }
 
 async function saveTemplateMedia(id, fileId) {
-  await db.collection('plantillas').doc(String(id)).set(
-    { media_file_id: fileId, actualizado: admin.firestore.FieldValue.serverTimestamp() },
-    { merge: true }
-  );
+  await saveStorageIndex('plantilla_' + String(id), {
+    template_id: String(id),
+    file_id: String(fileId || '')
+  });
 }
 
 async function getStorage() {
@@ -235,7 +197,16 @@ async function getStorage() {
 
 async function saveStorageIndex(key, data) {
   await db.collection('config').doc('storage').set({
-    media: { [key]: Object.assign({}, data, { actualizado: new Date().toISOString() }) }
+    media: {
+      [String(key)]: Object.assign({}, data, { actualizado: new Date().toISOString() })
+    }
+  }, { merge: true });
+}
+
+async function deleteStorageIndex(key) {
+  const ref = db.collection('config').doc('storage');
+  await ref.set({
+    media: { [String(key)]: admin.firestore.FieldValue.delete() }
   }, { merge: true });
 }
 
@@ -258,6 +229,6 @@ module.exports = {
   getBotMedia, saveBotMedia,
   getButtonConfig, saveButtonConfig,
   saveTemplateMedia,
-  getStorage, saveStorageIndex,
+  getStorage, saveStorageIndex, deleteStorageIndex,
   saveModelBotMedia, getModelBotMedia, deleteModelBotMedia
 };
