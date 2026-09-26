@@ -70,7 +70,7 @@ function sectionKeyboard(section) {
   }
   if (section === 'plantillas') {
     rows.push([b('➕ Crear', 'adm_template_create'), b('📋 Lista', 'adm_template_list')]);
-    rows.push([b('🗑️ Eliminar', 'adm_template_delete')]);
+    rows.push([b('🔄 Activar', 'adm_template_activate'), b('🗑️ Eliminar', 'adm_template_delete')]);
   }
   if (section === 'modelos') {
     rows.push([b('📋 Lista', 'adm_model_list'), b('➕ Nueva', 'adm_model_create')]);
@@ -316,6 +316,10 @@ module.exports = bot => {
         (p[id].media_file_id ? ' 📸' : '')
       );
       return ctx.reply('📋 <b>PLANTILLAS</b>\n\n' + (rows.join('\n') || 'Sin plantillas'), { parse_mode: 'HTML', ...sectionKeyboard('plantillas') });
+    }
+
+    if (a === 'adm_template_activate') {
+      return promptText(ctx, ctx.from.id, 'template_activate', '🔄 Escribe el <code>ID</code> de la plantilla que deseas activar.\n\nLa plantilla activa se utilizará para los perfiles de las modelos.');
     }
 
     if (a === 'adm_template_delete') {
@@ -712,10 +716,26 @@ module.exports = bot => {
         );
       }
 
-      if (action === 'template_delete') {
-        await deletePlantilla(text);
+      if (action === 'template_activate') {
+        const templates = await getPlantillas();
+        const tpl = templates[text];
+        if (!tpl) return ctx.reply('❌ No existe la plantilla <code>' + escapeHtml(text) + '</code>.', { parse_mode: 'HTML' });
+        await saveConfig({ plantilla_activa: text, plantilla_texto: tpl.texto || '' });
+        try {
+          await publishTextToStorage(ctx.telegram, 'plantillas', '🔄 PLANTILLA ACTIVA\nID: ' + text + '\nNombre: ' + String(tpl.nombre || text), { parse_mode: 'HTML' });
+        } catch (storageError) {
+          console.error('PLANTILLA ACTIVA: Storage:', storageError.message || storageError);
+        }
         clearPending(ctx.from.id);
-        return ctx.reply('🗑️ Plantilla <code>' + escapeHtml(text) + '</code> eliminada.', { parse_mode: 'HTML' });
+        return ctx.reply('✅ Plantilla activa: <b>' + escapeHtml(tpl.nombre || text) + '</b>\n🆔 <code>' + escapeHtml(text) + '</code>', { parse_mode: 'HTML' });
+      }
+
+      if (action === 'template_delete') {
+        const current = await getConfig();
+        await deletePlantilla(text);
+        if (current.plantilla_activa === text) await saveConfig({ plantilla_activa: '', plantilla_texto: '' });
+        clearPending(ctx.from.id);
+        return ctx.reply('🗑️ Plantilla <code>' + escapeHtml(text) + '</code> eliminada.' + (current.plantilla_activa === text ? '\nℹ️ La plantilla activa fue restablecida a la predeterminada.' : ''), { parse_mode: 'HTML' });
       }
 
       if (action === 'model_create') {
