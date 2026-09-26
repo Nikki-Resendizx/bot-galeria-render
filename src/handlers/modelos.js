@@ -103,7 +103,8 @@ async function sendModelo(ctx, id) {
     return ctx.reply('❌ Modelo no existe');
   }
 
-  const config = await getConfig();
+  let config = {};
+  try { config = await getConfig(); } catch (e) { console.error('MODELO: error cargando config:', e.message || e); }
   let plantilla = config.plantilla_texto ||
     '👑 {perfil} 👑\n@{username}\n{edad} | {nacionalidad}\n\n{Lista_servicios}\n\n{descripcion}\n\n{Votos} votos | {porcentaje_buenos}% buenos';
 
