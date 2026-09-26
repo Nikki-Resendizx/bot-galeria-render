@@ -185,7 +185,6 @@ module.exports = bot => {
     if (!await isAdmin(ctx.from.id)) return;
     const hadPending = !!getPending(ctx.from.id);
     clearAllPending(ctx.from.id);
-    if (global.__templateWizard?.delete) global.__templateWizard.delete(String(ctx.from.id));
     return ctx.reply(hadPending ? '❌ Operación cancelada. No se guardó ningún cambio pendiente.' : 'ℹ️ No hay ninguna operación pendiente para cancelar.');
   });
 
@@ -692,7 +691,8 @@ module.exports = bot => {
       }
 
       if (action === 'template_confirm') {
-        const tpl = global.__templatePending?.get(String(ctx.from.id));
+        const pendingTemplate = getPending(ctx.from.id);
+        const tpl = pendingTemplate?.type === 'template_confirm' ? pendingTemplate.template : null;
         if (!tpl) {
           clearPending(ctx.from.id);
           return ctx.reply('❌ La vista previa expiró. Pulsa ➕ Crear nuevamente.');
