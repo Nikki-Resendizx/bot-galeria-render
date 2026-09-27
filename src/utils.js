@@ -174,7 +174,7 @@ function textoConPremiumToHtml(text, entities = []) {
 }
 
 function esRichMessage(text){
-  return /<(?:h[1-6]|p|ul|ol|li|table|thead|tbody|tr|th|td|blockquote|details|summary|hr\\/?|img\\b|aside|footer|pre\\b|tg-collage|tg-slideshow|tg-math-block|tg-document|tg-map|tg-button-row)\\b/i.test(String(text||''));
+  return /<(?:h[1-6]|p|ul|ol|li|table|thead|tbody|tr|th|td|blockquote|details|summary|hr\/?|img\b|aside|footer|pre\b|tg-collage|tg-slideshow|tg-math-block|tg-document|tg-map|tg-button-row)\b/i.test(String(text||''));
 }
 
 function prepararRichMessage(text, format='HTML'){
