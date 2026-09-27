@@ -41,7 +41,7 @@ function formatearListaServicios(value){
     try {
       const parsed=JSON.parse(raw);
       if(Array.isArray(parsed)) items=parsed;
-      else items=raw.split(/\\r?\\n|\\s*[,;]\\s*/);
+      else items=raw.split(/\r?\n|\s*[,;]\s*/);
     } catch(e) {
       items=raw.split(/\\r?\\n|\\s*[,;]\\s*/);
     }
@@ -56,7 +56,7 @@ function formatearListaServicios(value){
     seen.add(key);
     clean.push(text);
   }
-  return clean.map(item=>'• '+escapeHtml(item)).join('\\n');
+  return clean.map(item=>'• '+escapeHtml(item)).join('\n');
 }
 
 function replaceVars(text,ctx,model){
