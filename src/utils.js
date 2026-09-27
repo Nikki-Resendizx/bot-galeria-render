@@ -96,7 +96,26 @@ function replaceVars(text,ctx,model,options={}){
     porcentaje_buenos:total?Math.round(Number(model.votosBueno||0)*100/total):0,
     porcentaje_malos:total?Math.round(Number(model.votosMalo||0)*100/total):0
   };
-  return String(text||'').replace(/\{([a-zA-Z0-9_]+)\}/g,(_,k)=>Object.prototype.hasOwnProperty.call(vars,k)?vars[k]:'{'+k+'}');
+  const sourceText = String(text||'');
+  return sourceText.replace(/\{([a-zA-Z0-9_]+)\}/g,(match,k,offset)=>{
+    if(!Object.prototype.hasOwnProperty.call(vars,k)) return match;
+    // Telegram puede no interpretar <ul>/<li> dentro de bloques desplegables
+    // (details / blockquote expandable). En ese contexto usamos viñetas
+    // reales conservando un servicio por línea.
+    if(k==='Lista_servicios' && options.rich){
+      const before=sourceText.slice(0,offset);
+      const lastDetailsOpen=before.lastIndexOf('<details');
+      const lastDetailsClose=before.lastIndexOf('</details>');
+      const lastExpandableOpen=before.lastIndexOf('<blockquote expandable');
+      const lastBlockquoteClose=before.lastIndexOf('</blockquote>');
+      const insideDetails=lastDetailsOpen>lastDetailsClose;
+      const insideExpandable=lastExpandableOpen>lastBlockquoteClose;
+      if(insideDetails || insideExpandable){
+        return formatearListaServicios(model.Lista_servicios||model.servicios_lista||model.servicios||'',{rich:false});
+      }
+    }
+    return vars[k];
+  });
 }
 
 function replaceVarsInRich(value,ctx,model,options={}){
