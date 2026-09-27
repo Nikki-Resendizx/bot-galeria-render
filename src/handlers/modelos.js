@@ -197,7 +197,7 @@ async function sendModelo(ctx, id) {
   // por Telegram en lugar de aparecer como texto literal.
   if (rich) {
     const richHtml = String(texto || '')
-      .replace(/<img\\s+[^>]*src=["']tg:\\/\\/photo\\?id=model_photo["'][^>]*>/gi, '')
+      .replace(/<img\s+[^>]*src=["']tg:\/\/photo\?id=model_photo["'][^>]*>/gi, '')
       .trim();
     const richOptions = { parse_mode: 'HTML', ...markup };
 
