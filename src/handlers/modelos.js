@@ -202,7 +202,7 @@ async function sendModelo(ctx, id) {
         richMessage = { blocks: replaceVarsInRich(plantillaRich, ctx, model, { rich: true }) };
       } else {
         let richHtml = String(texto || '');
-        const hasPhotoTag = /<img\\s+[^>]*src=["']tg:\\/\\/photo\\?id=model_photo["'][^>]*>/i.test(richHtml);
+        const hasPhotoTag = /<img\s+[^>]*src=["']tg:\/\/photo\?id=model_photo["'][^>]*>/i.test(richHtml);
         if (fileId && !hasPhotoTag) richHtml = '<img src="tg://photo?id=model_photo">' + richHtml;
         richMessage = { html: richHtml };
       }
