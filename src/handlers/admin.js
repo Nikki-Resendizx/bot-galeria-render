@@ -718,7 +718,8 @@ module.exports = bot => {
           return ctx.reply('❌ La creación expiró. Pulsa ➕ Crear nuevamente.');
         }
         const entities = ctx.message.entities || [];
-        const converted = textoConPremiumToHtml(text, entities);
+        const rich = esRichMessage(text);
+        const converted = rich ? { html: text, ids: [] } : textoConPremiumToHtml(text, entities);
         const detected = prepararTextoTelegram(text, entities);
         const template = {
           id: wizard.id,
@@ -727,14 +728,15 @@ module.exports = bot => {
           texto_original: text,
           entities,
           premium_emoji_ids: converted.ids,
-          formato: detected.formato,
-          parse_mode: converted.ids.length ? 'HTML' : (detected.parse_mode || null),
+          formato: rich ? 'RichHTML' : detected.formato,
+          parse_mode: rich ? null : (converted.ids.length ? 'HTML' : (detected.parse_mode || null)),
+          rich_message: rich ? { html: text } : null,
           actualizado: new Date().toISOString()
         };
         setPending(ctx.from.id, { type: 'template_confirm', template });
         return ctx.reply(
           '3️⃣ <b>VISTA PREVIA DE LA PLANTILLA</b>\n\n' +
-          converted.html +
+          (rich ? '<i>📖 Artículo Rich Message detectado. Telegram renderizará los bloques al enviarlo.</i>\n\n<code>' + escapeHtml(text).slice(0, 3500) + '</code>' : converted.html) +
           '\n\n🆔 <code>' + escapeHtml(template.id) + '</code>' +
           '\n📛 Nombre: <b>' + escapeHtml(template.nombre) + '</b>' +
           '\n📐 Formato: <b>' + escapeHtml(template.formato) + '</b>' +
