@@ -10,7 +10,8 @@ const TEMPLATE_VARIABLES = Object.freeze([
   { key: 'edad', label: 'Edad', example: '{edad}' },
   { key: 'nacionalidad', label: 'Nacionalidad', example: '{nacionalidad}' },
   { key: 'servicios', label: 'Servicios', example: '{servicios}' },
-  { key: 'Lista_servicios', label: 'Servicios (alias compatible)', example: '{Lista_servicios}' },
+  { key: 'Lista_servicios', label: 'Servicios en lista para texto normal', example: '{Lista_servicios}' },
+  { key: 'Lista_servicios_expandible', label: 'Servicios para bloque desplegable de Artículo (Rich Message)', example: '{Lista_servicios_expandible}' },
   { key: 'descripcion', label: 'Descripción', example: '{descripcion}' },
   { key: 'votosBueno', label: 'Votos positivos', example: '{votosBueno}' },
   { key: 'votosMalo', label: 'Votos negativos', example: '{votosMalo}' },
@@ -80,6 +81,10 @@ function replaceVars(text,ctx,model,options={}){
     servicios:escapeHtml(model.servicios||model.servicios_lista||model.Lista_servicios||''),
     servicios_lista:escapeHtml(model.servicios_lista||model.servicios||''),
     Lista_servicios:formatearListaServicios(model.Lista_servicios||model.servicios_lista||model.servicios||'',options),
+    // Variable exclusiva para el bloque desplegable de un Artículo/Rich Message.
+    // Devuelve una lista HTML válida para el renderizador Rich, sin alterar
+    // el comportamiento de {Lista_servicios} fuera de ese bloque.
+    Lista_servicios_expandible:formatearListaServicios(model.Lista_servicios||model.servicios_lista||model.servicios||'',{rich:true}),
     descripcion:escapeHtml(model.descripcion||''),
     canal_free:escapeHtml(model.canal_free||model.canalFree||''),
     canalFree:escapeHtml(model.canalFree||model.canal_free||''),
@@ -99,25 +104,6 @@ function replaceVars(text,ctx,model,options={}){
   const sourceText = String(text||'');
   return sourceText.replace(/\{([a-zA-Z0-9_]+)\}/g,(match,k,offset)=>{
     if(!Object.prototype.hasOwnProperty.call(vars,k)) return match;
-    // Telegram puede no interpretar <ul>/<li> dentro de bloques desplegables
-    // (details / blockquote expandable). En ese contexto usamos viñetas
-    // reales conservando un servicio por línea.
-    if(k==='Lista_servicios' && options.rich){
-      // Dentro de cualquier bloque desplegable de la plantilla usamos
-      // viñetas de texto. <ul>/<li> puede quedar como HTML literal dentro
-      // de un blockquote expandable según el renderizador Rich.
-      const before=sourceText.slice(0,offset);
-      const lastExpandableOpen=before.lastIndexOf('<blockquote expandable');
-      const lastBlockquoteClose=before.lastIndexOf('</blockquote>');
-      const insideExpandable=lastExpandableOpen>lastBlockquoteClose;
-      const hasExpandableBlock=/<blockquote\\s+expandable\\b/i.test(sourceText);
-      if(insideExpandable || hasExpandableBlock){
-        const lista = formatearListaServicios(model.Lista_servicios||model.servicios_lista||model.servicios||'',{rich:false});
-        // El bloque Rich necesita separación real después del contenido anterior.
-        // Así evitamos que la primera viñeta quede pegada a una etiqueta inline.
-        return lista ? '\\n' + lista : '';
-      }
-    }
     return vars[k];
   });
 }
