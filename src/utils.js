@@ -99,6 +99,17 @@ function replaceVars(text,ctx,model,options={}){
   return String(text||'').replace(/\{([a-zA-Z0-9_]+)\}/g,(_,k)=>Object.prototype.hasOwnProperty.call(vars,k)?vars[k]:'{'+k+'}');
 }
 
+function replaceVarsInRich(value,ctx,model,options={}){
+  if(typeof value==='string') return replaceVars(value,ctx,model,options);
+  if(Array.isArray(value)) return value.map(v=>replaceVarsInRich(v,ctx,model,options));
+  if(value && typeof value==='object') {
+    const out={};
+    for(const [key,val] of Object.entries(value)) out[key]=replaceVarsInRich(val,ctx,model,options);
+    return out;
+  }
+  return value;
+}
+
 function entityTag(entity, visible){
   const type=entity.type;
   const value=escapeHtml(visible);
@@ -189,4 +200,4 @@ function prepararTextoTelegram(text,entities=[]){
 }
 function slugify(v){return String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)||('plantilla_'+Date.now());}
 
-module.exports={isAdmin,escapeHtml,replaceVars,formatearListaServicios,esRichMessage,prepararRichMessage,TEMPLATE_VARIABLES,templateVariablesHelp,textoConPremiumToHtml,detectarFormatoTelegram,prepararTextoTelegram,slugify};
+module.exports={isAdmin,escapeHtml,replaceVars,replaceVarsInRich,formatearListaServicios,esRichMessage,prepararRichMessage,TEMPLATE_VARIABLES,templateVariablesHelp,textoConPremiumToHtml,detectarFormatoTelegram,prepararTextoTelegram,slugify};
