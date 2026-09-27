@@ -1,6 +1,6 @@
 const { getModelos, getModelo, voteModelo, getModelBotMedia, saveModelBotMedia } = require('../config/db');
 const { getConfig } = require('../cache');
-const { escapeHtml, replaceVars, isAdmin, prepararTextoTelegram, esRichMessage } = require('../utils');
+const { escapeHtml, replaceVars, replaceVarsInRich, isAdmin, prepararTextoTelegram, esRichMessage } = require('../utils');
 const { Markup } = require('telegraf');
 const { button, urlButton, webAppButton } = require('../buttons');
 const { publishModelPhoto, deleteStorageMessage } = require('../storage');
@@ -133,6 +133,7 @@ async function sendModelo(ctx, id) {
   try { config = await getConfig(); } catch (e) { console.error('MODELO: error cargando config:', e.message || e); }
   let plantilla = config.plantilla_texto ||
     '👑 {perfil} 👑\n@{username}\n{edad} | {nacionalidad}\n\n{Lista_servicios}\n\n{descripcion}\n\n{Votos} votos | {porcentaje_buenos}% buenos';
+  let plantillaRich = null;
 
   // Si existe una plantilla activa, esta tiene prioridad y permite
   // intercambiar el estilo sin tocar cada modelo.
@@ -140,15 +141,15 @@ async function sendModelo(ctx, id) {
     try {
       const { getPlantillas } = require('../config/db');
       const plantillas = await getPlantillas();
-      if (plantillas[config.plantilla_activa]?.texto) {
-        plantilla = plantillas[config.plantilla_activa].texto;
-      }
+      const active = plantillas[config.plantilla_activa];
+      if (active?.rich_message?.blocks?.length) plantillaRich = active.rich_message.blocks;
+      else if (active?.texto) plantilla = active.texto;
     } catch (e) {
       console.error('MODELO: error cargando plantilla activa:', e.message || e);
     }
   }
 
-  const rich = esRichMessage(plantilla);
+  const rich = Array.isArray(plantillaRich) || esRichMessage(plantilla);
   const texto = replaceVars(plantilla, ctx, model, { rich });
   // Las plantillas pueden llegar en HTML, MarkdownV2, texto plano o Rich Messages.
   // No forzamos HTML: Telegram rechazaba algunas plantillas y terminaba
@@ -196,13 +197,16 @@ async function sendModelo(ctx, id) {
   // encabezados, citas, tablas, divisores, detalles y demás bloques.
   if (rich) {
     try {
-      let richHtml = String(texto || '');
-      const hasPhotoTag = /<img\\s+[^>]*src=["']tg:\\/\\/photo\\?id=model_photo["'][^>]*>/i.test(richHtml);
-      if (fileId && !hasPhotoTag) {
-        richHtml = '<img src="tg://photo?id=model_photo">' + richHtml;
+      let richMessage;
+      if (Array.isArray(plantillaRich)) {
+        richMessage = { blocks: replaceVarsInRich(plantillaRich, ctx, model, { rich: true }) };
+      } else {
+        let richHtml = String(texto || '');
+        const hasPhotoTag = /<img\\s+[^>]*src=["']tg:\\/\\/photo\\?id=model_photo["'][^>]*>/i.test(richHtml);
+        if (fileId && !hasPhotoTag) richHtml = '<img src="tg://photo?id=model_photo">' + richHtml;
+        richMessage = { html: richHtml };
       }
-      const richMessage = { html: richHtml };
-      if (fileId) {
+      if (fileId && richMessage.html) {
         richMessage.media = [{ id: 'model_photo', media: { type: 'photo', media: fileId } }];
       }
       return await ctx.telegram.callApi('sendRichMessage', {
