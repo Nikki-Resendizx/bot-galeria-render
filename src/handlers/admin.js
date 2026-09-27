@@ -745,7 +745,7 @@ module.exports = bot => {
           '2️⃣ <b>Contenido de la plantilla</b>\n\n' +
           'Ahora envía el texto completo usando las variables que necesites y tus emojis Premium.\n\n' +
           'Variables disponibles:\n' + templateVariablesHelp() + '\n\n' +
-          '💎 Los emojis Premium reales se detectan automáticamente.\n✨ También se detecta automáticamente el formato de Telegram/HTML/Markdown.\n\n❌ /cancel para cancelar.',
+          '💎 Los emojis Premium reales se detectan automáticamente.\n✨ También se detecta automáticamente el formato clásico y el nuevo formato de Artículo/Rich Message.\n\n📖 Puedes enviar directamente un artículo de Telegram con encabezados, listas, citas, tablas, divisores y detalles desplegables; el bot conservará su estructura.\n\n❌ /cancel para cancelar.',
           { parse_mode: 'HTML' }
         );
       }
