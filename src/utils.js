@@ -103,14 +103,15 @@ function replaceVars(text,ctx,model,options={}){
     // (details / blockquote expandable). En ese contexto usamos viñetas
     // reales conservando un servicio por línea.
     if(k==='Lista_servicios' && options.rich){
+      // Dentro de cualquier bloque desplegable de la plantilla usamos
+      // viñetas de texto. <ul>/<li> puede quedar como HTML literal dentro
+      // de un blockquote expandable según el renderizador Rich.
       const before=sourceText.slice(0,offset);
-      const lastDetailsOpen=before.lastIndexOf('<details');
-      const lastDetailsClose=before.lastIndexOf('</details>');
       const lastExpandableOpen=before.lastIndexOf('<blockquote expandable');
       const lastBlockquoteClose=before.lastIndexOf('</blockquote>');
-      const insideDetails=lastDetailsOpen>lastDetailsClose;
       const insideExpandable=lastExpandableOpen>lastBlockquoteClose;
-      if(insideDetails || insideExpandable){
+      const hasExpandableBlock=/<blockquote\\s+expandable\\b/i.test(sourceText);
+      if(insideExpandable || hasExpandableBlock){
         return formatearListaServicios(model.Lista_servicios||model.servicios_lista||model.servicios||'',{rich:false});
       }
     }
