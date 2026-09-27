@@ -192,31 +192,29 @@ async function sendModelo(ctx, id) {
 
   const markup = Markup.inlineKeyboard(buttons);
 
-  // Telegram Bot API 10.1+ permite Rich Messages (artículos enriquecidos).
-  // Los RichHTML se envían mediante sendRichMessage y conservan listas,
-  // encabezados, citas, tablas, divisores, detalles y demás bloques.
+  // Las plantillas Rich se envían mediante la API estándar de Telegram con
+  // parse_mode HTML. Esto permite que <blockquote expandable> sea interpretado
+  // por Telegram en lugar de aparecer como texto literal.
   if (rich) {
+    const richHtml = String(texto || '')
+      .replace(/<img\\s+[^>]*src=["']tg:\\/\\/photo\\?id=model_photo["'][^>]*>/gi, '')
+      .trim();
+    const richOptions = { parse_mode: 'HTML', ...markup };
+
+    if (fileId && richHtml.length <= 1024) {
+      try {
+        return await ctx.replyWithPhoto(fileId, { caption: richHtml, ...richOptions });
+      } catch (e) {
+        console.error('MODELO: Rich HTML en caption rechazado:', e.message || e);
+      }
+    }
+
     try {
-      let richMessage;
-      if (Array.isArray(plantillaRich)) {
-        richMessage = { blocks: replaceVarsInRich(plantillaRich, ctx, model, { rich: true }) };
-      } else {
-        let richHtml = String(texto || '');
-        const hasPhotoTag = /<img\s+[^>]*src=["']tg:\/\/photo\?id=model_photo["'][^>]*>/i.test(richHtml);
-        if (fileId && !hasPhotoTag) richHtml = '<img src="tg://photo?id=model_photo">' + richHtml;
-        richMessage = { html: richHtml };
-      }
-      if (fileId && richMessage.html) {
-        richMessage.media = [{ id: 'model_photo', media: { type: 'photo', media: fileId } }];
-      }
-      return await ctx.telegram.callApi('sendRichMessage', {
-        chat_id: ctx.chat.id,
-        rich_message: richMessage,
-        reply_markup: markup.reply_markup
-      });
+      if (fileId) await ctx.replyWithPhoto(fileId);
+      return await ctx.reply(richHtml.slice(0, 4096), richOptions);
     } catch (e) {
-      console.error('MODELO: Rich Message rechazado:', e.message || e);
-      // Fallback al envío clásico para no impedir que se abra el perfil.
+      console.error('MODELO: Rich HTML rechazado:', e.message || e);
+      // Continúa al envío clásico como último recurso.
     }
   }
 
