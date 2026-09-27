@@ -1,6 +1,6 @@
 const { getModelos, getModelo, voteModelo, getModelBotMedia, saveModelBotMedia } = require('../config/db');
 const { getConfig } = require('../cache');
-const { escapeHtml, replaceVars, isAdmin, prepararTextoTelegram } = require('../utils');
+const { escapeHtml, replaceVars, isAdmin, prepararTextoTelegram, esRichMessage } = require('../utils');
 const { Markup } = require('telegraf');
 const { button, urlButton, webAppButton } = require('../buttons');
 const { publishModelPhoto, deleteStorageMessage } = require('../storage');
@@ -148,8 +148,9 @@ async function sendModelo(ctx, id) {
     }
   }
 
-  const texto = replaceVars(plantilla, ctx, model);
-  // Las plantillas pueden llegar en HTML, MarkdownV2 o texto plano.
+  const rich = esRichMessage(plantilla);
+  const texto = replaceVars(plantilla, ctx, model, { rich });
+  // Las plantillas pueden llegar en HTML, MarkdownV2, texto plano o Rich Messages.
   // No forzamos HTML: Telegram rechazaba algunas plantillas y terminaba
   // mostrando el mensaje genérico "No pude abrir esta modelo".
   const formato = prepararTextoTelegram(texto, []);
@@ -189,6 +190,31 @@ async function sendModelo(ctx, id) {
   ]);
 
   const markup = Markup.inlineKeyboard(buttons);
+
+  // Telegram Bot API 10.1+ permite Rich Messages (artículos enriquecidos).
+  // Los RichHTML se envían mediante sendRichMessage y conservan listas,
+  // encabezados, citas, tablas, divisores, detalles y demás bloques.
+  if (rich) {
+    try {
+      let richHtml = String(texto || '');
+      const hasPhotoTag = /<img\\s+[^>]*src=["']tg:\\/\\/photo\\?id=model_photo["'][^>]*>/i.test(richHtml);
+      if (fileId && !hasPhotoTag) {
+        richHtml = '<img src="tg://photo?id=model_photo">' + richHtml;
+      }
+      const richMessage = { html: richHtml };
+      if (fileId) {
+        richMessage.media = [{ id: 'model_photo', media: { type: 'photo', media: fileId } }];
+      }
+      return await ctx.telegram.callApi('sendRichMessage', {
+        chat_id: ctx.chat.id,
+        rich_message: richMessage,
+        reply_markup: markup.reply_markup
+      });
+    } catch (e) {
+      console.error('MODELO: Rich Message rechazado:', e.message || e);
+      // Fallback al envío clásico para no impedir que se abra el perfil.
+    }
+  }
 
   if (fileId) {
     // Telegram limita el caption de una foto a 1024 caracteres.
