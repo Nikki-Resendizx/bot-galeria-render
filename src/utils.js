@@ -112,7 +112,10 @@ function replaceVars(text,ctx,model,options={}){
       const insideExpandable=lastExpandableOpen>lastBlockquoteClose;
       const hasExpandableBlock=/<blockquote\\s+expandable\\b/i.test(sourceText);
       if(insideExpandable || hasExpandableBlock){
-        return formatearListaServicios(model.Lista_servicios||model.servicios_lista||model.servicios||'',{rich:false});
+        const lista = formatearListaServicios(model.Lista_servicios||model.servicios_lista||model.servicios||'',{rich:false});
+        // El bloque Rich necesita separación real después del contenido anterior.
+        // Así evitamos que la primera viñeta quede pegada a una etiqueta inline.
+        return lista ? '\\n' + lista : '';
       }
     }
     return vars[k];
