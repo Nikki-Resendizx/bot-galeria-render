@@ -142,8 +142,16 @@ async function sendModelo(ctx, id) {
       const { getPlantillas } = require('../config/db');
       const plantillas = await getPlantillas();
       const active = plantillas[config.plantilla_activa];
-      if (active?.rich_message?.blocks?.length) plantillaRich = active.rich_message.blocks;
-      else if (active?.texto) plantilla = active.texto;
+      if (active?.rich_message?.blocks?.length) {
+        plantillaRich = active.rich_message.blocks;
+      } else if (active?.rich_message?.html) {
+        // Las plantillas Rich se almacenan también como HTML original.
+        // Debe conservarse esta representación para no perder el formato
+        // al seleccionar una modelo.
+        plantilla = active.rich_message.html;
+      } else if (active?.texto) {
+        plantilla = active.texto;
+      }
     } catch (e) {
       console.error('MODELO: error cargando plantilla activa:', e.message || e);
     }
@@ -151,10 +159,11 @@ async function sendModelo(ctx, id) {
 
   const rich = Array.isArray(plantillaRich) || esRichMessage(plantilla);
   const texto = replaceVars(plantilla, ctx, model, { rich });
-  // Las plantillas pueden llegar en HTML, MarkdownV2, texto plano o Rich Messages.
-  // No forzamos HTML: Telegram rechazaba algunas plantillas y terminaba
-  // mostrando el mensaje genérico "No pude abrir esta modelo".
-  const formato = prepararTextoTelegram(texto, []);
+  // RichHTML siempre se envía como HTML para conservar etiquetas como
+  // <b>, <i>, <a> y <blockquote expandable>.
+  const formato = rich
+    ? { text: texto, entities: undefined, parse_mode: 'HTML', formato: 'RichHTML' }
+    : prepararTextoTelegram(texto, []);
   const media = await getModelBotMedia(id);
   const fileId = media?.file_id;
 
