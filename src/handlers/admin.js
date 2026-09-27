@@ -569,6 +569,46 @@ module.exports = bot => {
     }
   });
 
+  bot.on('message', async (ctx, next) => {
+    if (!await isAdmin(ctx.from?.id)) return next();
+    const pendingState = getPending(ctx.from.id);
+    if (!pendingState || pendingState.type !== 'template_content') return next();
+    const rich = ctx.message?.rich_message;
+    if (!rich || !Array.isArray(rich.blocks)) return next();
+
+    const wizard = pendingState.wizard;
+    const template = {
+      id: wizard.id,
+      nombre: wizard.nombre,
+      texto: '',
+      texto_original: '',
+      entities: [],
+      premium_emoji_ids: [],
+      formato: 'RichBlocks',
+      parse_mode: null,
+      rich_message: { blocks: rich.blocks },
+      actualizado: new Date().toISOString()
+    };
+    setPending(ctx.from.id, { type: 'template_confirm', template });
+    return ctx.reply(
+      '3️⃣ <b>VISTA PREVIA DE LA PLANTILLA</b>\\n\\n' +
+      '📖 <b>Artículo Rich Message detectado</b>\\n' +
+      'Telegram envió ' + rich.blocks.length + ' bloque(s) estructurado(s).\\n\\n' +
+      'Se conservarán encabezados, listas, citas, tablas, divisores y demás formato compatible.\\n\\n' +
+      '🆔 <code>' + escapeHtml(template.id) + '</code>\\n' +
+      '📛 Nombre: <b>' + escapeHtml(template.nombre) + '</b>\\n' +
+      '📐 Formato: <b>RichBlocks</b>\\n\\n' +
+      '¿Guardar esta plantilla?',
+      {
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('✅ Guardar plantilla', 'adm_tpl_save')],
+          [Markup.button.callback('❌ Cancelar', 'adm_tpl_cancel')]
+        ])
+      }
+    );
+  });
+
   bot.on('text', async (ctx, next) => {
     if (!await isAdmin(ctx.from.id)) return next();
     const pendingState = getPending(ctx.from.id);
