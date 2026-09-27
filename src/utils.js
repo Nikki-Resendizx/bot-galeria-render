@@ -56,7 +56,7 @@ function formatearListaServicios(value, options={}){
     seen.add(key);
     clean.push(text);
   }
-  if(options.rich) return clean.map(item=>'<li>'+escapeHtml(item)+'</li>').join('');
+  if(options.rich) { if(!clean.length) return ''; return '<ul>'+clean.map(item=>'<li>'+escapeHtml(item)+'</li>').join('')+'</ul>'; }
   return clean.map(item=>'• '+escapeHtml(item)).join('\n');
 }
 
