@@ -1,4 +1,4 @@
-const { isAdmin, slugify, escapeHtml, textoConPremiumToHtml, prepararTextoTelegram, templateVariablesHelp } = require('../utils');
+const { isAdmin, slugify, escapeHtml, textoConPremiumToHtml, prepararTextoTelegram, templateVariablesHelp, esRichMessage } = require('../utils');
 const {
   saveConfig, getConfig, getPlantillas, savePlantilla, deletePlantilla,
   getBotMedia, saveBotMedia, getModelo, saveModelBotMedia
@@ -9,14 +9,16 @@ const { setPending, getPending, clearPending } = require('../pending');
 
 function normalizeTemplate(name, text, entities = []) {
   const id = slugify(name);
-  const converted = textoConPremiumToHtml(text, entities);
+  const rich = esRichMessage(text);
+  const converted = rich ? { html: String(text), ids: [] } : textoConPremiumToHtml(text, entities);
   const detected = prepararTextoTelegram(text, entities);
   return {
     id, nombre: String(name).trim(), texto: converted.html,
     texto_original: String(text), entities: Array.isArray(entities) ? entities : [],
     premium_emoji_ids: converted.ids,
-    formato: detected.formato,
-    parse_mode: converted.ids.length ? 'HTML' : (detected.parse_mode || null),
+    formato: rich ? 'RichHTML' : detected.formato,
+    parse_mode: rich ? null : (converted.ids.length ? 'HTML' : (detected.parse_mode || null)),
+    rich_message: rich ? { html: String(text) } : null,
     actualizado: new Date().toISOString()
   };
 }
