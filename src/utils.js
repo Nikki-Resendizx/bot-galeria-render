@@ -43,13 +43,13 @@ function formatearListaServicios(value){
       if(Array.isArray(parsed)) items=parsed;
       else items=raw.split(/\r?\n|\s*[,;]\s*/);
     } catch(e) {
-      items=raw.split(/\\r?\\n|\\s*[,;]\\s*/);
+      items=raw.split(/\r?\n|\s*[,;]\s*/);
     }
   }
   const clean=[];
   const seen=new Set();
   for(const item of items){
-    const text=String(item??'').replace(/^[-•▪◦*]+\\s*/,'').trim();
+    const text=String(item??'').replace(/^[-•▪◦*]+\s*/,'').trim();
     if(!text) continue;
     const key=text.toLocaleLowerCase();
     if(seen.has(key)) continue;
