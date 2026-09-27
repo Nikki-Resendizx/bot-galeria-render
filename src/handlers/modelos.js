@@ -142,16 +142,8 @@ async function sendModelo(ctx, id) {
       const { getPlantillas } = require('../config/db');
       const plantillas = await getPlantillas();
       const active = plantillas[config.plantilla_activa];
-      if (active?.rich_message?.blocks?.length) {
-        plantillaRich = active.rich_message.blocks;
-      } else if (active?.rich_message?.html) {
-        // Las plantillas Rich se almacenan también como HTML original.
-        // Debe conservarse esta representación para no perder el formato
-        // al seleccionar una modelo.
-        plantilla = active.rich_message.html;
-      } else if (active?.texto) {
-        plantilla = active.texto;
-      }
+      if (active?.rich_message?.blocks?.length) plantillaRich = active.rich_message.blocks;
+      else if (active?.texto) plantilla = active.texto;
     } catch (e) {
       console.error('MODELO: error cargando plantilla activa:', e.message || e);
     }
@@ -159,11 +151,10 @@ async function sendModelo(ctx, id) {
 
   const rich = Array.isArray(plantillaRich) || esRichMessage(plantilla);
   const texto = replaceVars(plantilla, ctx, model, { rich });
-  // RichHTML siempre se envía como HTML para conservar etiquetas como
-  // <b>, <i>, <a> y <blockquote expandable>.
-  const formato = rich
-    ? { text: texto, entities: undefined, parse_mode: 'HTML', formato: 'RichHTML' }
-    : prepararTextoTelegram(texto, []);
+  // Las plantillas pueden llegar en HTML, MarkdownV2, texto plano o Rich Messages.
+  // No forzamos HTML: Telegram rechazaba algunas plantillas y terminaba
+  // mostrando el mensaje genérico "No pude abrir esta modelo".
+  const formato = prepararTextoTelegram(texto, []);
   const media = await getModelBotMedia(id);
   const fileId = media?.file_id;
 
@@ -201,29 +192,31 @@ async function sendModelo(ctx, id) {
 
   const markup = Markup.inlineKeyboard(buttons);
 
-  // Las plantillas Rich se envían mediante la API estándar de Telegram con
-  // parse_mode HTML. Esto permite que <blockquote expandable> sea interpretado
-  // por Telegram en lugar de aparecer como texto literal.
+  // Telegram Bot API 10.1+ permite Rich Messages (artículos enriquecidos).
+  // Los RichHTML se envían mediante sendRichMessage y conservan listas,
+  // encabezados, citas, tablas, divisores, detalles y demás bloques.
   if (rich) {
-    const richHtml = String(texto || '')
-      .replace(/<img\s+[^>]*src=["']tg:\/\/photo\?id=model_photo["'][^>]*>/gi, '')
-      .trim();
-    const richOptions = { parse_mode: 'HTML', ...markup };
-
-    if (fileId && richHtml.length <= 1024) {
-      try {
-        return await ctx.replyWithPhoto(fileId, { caption: richHtml, ...richOptions });
-      } catch (e) {
-        console.error('MODELO: Rich HTML en caption rechazado:', e.message || e);
-      }
-    }
-
     try {
-      if (fileId) await ctx.replyWithPhoto(fileId);
-      return await ctx.reply(richHtml.slice(0, 4096), richOptions);
+      let richMessage;
+      if (Array.isArray(plantillaRich)) {
+        richMessage = { blocks: replaceVarsInRich(plantillaRich, ctx, model, { rich: true }) };
+      } else {
+        let richHtml = String(texto || '');
+        const hasPhotoTag = /<img\s+[^>]*src=["']tg:\/\/photo\?id=model_photo["'][^>]*>/i.test(richHtml);
+        if (fileId && !hasPhotoTag) richHtml = '<img src="tg://photo?id=model_photo">' + richHtml;
+        richMessage = { html: richHtml };
+      }
+      if (fileId && richMessage.html) {
+        richMessage.media = [{ id: 'model_photo', media: { type: 'photo', media: fileId } }];
+      }
+      return await ctx.telegram.callApi('sendRichMessage', {
+        chat_id: ctx.chat.id,
+        rich_message: richMessage,
+        reply_markup: markup.reply_markup
+      });
     } catch (e) {
-      console.error('MODELO: Rich HTML rechazado:', e.message || e);
-      // Continúa al envío clásico como último recurso.
+      console.error('MODELO: Rich Message rechazado:', e.message || e);
+      // Fallback al envío clásico para no impedir que se abra el perfil.
     }
   }
 
