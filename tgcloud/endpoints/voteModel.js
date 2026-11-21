@@ -1,6 +1,6 @@
 import { db, EndpointError } from 'sdk';
 import { eq } from 'sdk/db';
-import { models, modelVotes } from '../schema.js';
+import { models } from '../schema.js';
 
 function makeId() {
   return `v_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
@@ -16,16 +16,21 @@ export default async function (input = {}, ctx) {
   const model = await db.select().from(models).where(eq(models.id, modelId)).get();
   if (!model || model.active === false) throw new EndpointError('Modelo no encontrada.');
 
+  // INSERT OR IGNORE + índice único (model_id, telegram_user_id) evita votos duplicados,
+  // incluso si el usuario pulsa dos veces casi al mismo tiempo.
   const voteId = makeId();
-  const inserted = await db.insert(modelVotes).values({
-    id: voteId,
-    modelId,
-    telegramUserId: userId,
-    type,
-    createdAt: new Date().toISOString(),
-  }).onConflictDoNothing().returning().run();
+  const inserted = await db.run(
+    'INSERT OR IGNORE INTO model_votes (id, model_id, telegram_user_id, type, created_at) VALUES (:id, :modelId, :userId, :type, :createdAt)',
+    {
+      ':id': voteId,
+      ':modelId': modelId,
+      ':userId': userId,
+      ':type': type,
+      ':createdAt': new Date().toISOString(),
+    }
+  );
 
-  if (!inserted.rows?.length) {
+  if (Number(inserted.rowsAffected || 0) === 0) {
     return { registered: false, bueno: model.goodVotes || 0, malo: model.badVotes || 0 };
   }
 
