@@ -14,7 +14,7 @@ export default async function (input = {}, ctx) {
     .all();
   return rows.map(row => ({
     id: row.id,
-    username: row.username || 'Anon',
+    username: 'Anon',
     text: row.text,
     createdAt: row.createdAt,
     mine: Number(row.telegramUserId) === Number(ctx.initData?.user?.id),
