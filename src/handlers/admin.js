@@ -214,10 +214,10 @@ module.exports = bot => {
           { source: buffer, filename: 'verifiedmodels-backup-' + stamp + '.json' },
           {
             caption:
-              '💾 <b>BACKUP DE VERIFIEDMODELS</b>\\n\\n' +
-              '💃 Modelos: <b>' + backup.totalModels + '</b>\\n' +
-              '🗳️ Incluye votos y comentarios por modelo.\\n' +
-              '📸 Incluye referencias de fotografías guardadas en Telegram Storage.\\n\\n' +
+              '💾 <b>BACKUP DE VERIFIEDMODELS</b>\n\n' +
+              '💃 Modelos: <b>' + backup.totalModels + '</b>\n' +
+              '🗳️ Incluye votos y comentarios por modelo.\n' +
+              '📸 Incluye referencias de fotografías guardadas en Telegram Storage.\n\n' +
               '📦 Archivo portable para importar después de la migración a Serverless.',
             parse_mode: 'HTML'
           }
