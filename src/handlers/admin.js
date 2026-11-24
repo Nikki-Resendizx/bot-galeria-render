@@ -14,7 +14,7 @@ const { clearCache: clearFirebaseCache } = require('../cache');
 const { normalizeStyle, splitButtonKey, cleanCustomEmojiText } = require('../buttons');
 
 const { setPending, clearPending, getPending, clearAllPending } = require('../pending');
-const { exportModelsBackup, importModelsBackup, validateBackup } = require('../models-backup');
+const { exportModelsBackup } = require('../models-backup');
 
 function b(text, callback_data, style = 'primary') {
   return { text, callback_data, style };
@@ -80,7 +80,7 @@ function sectionKeyboard(section) {
     rows.push([b('📸 Foto', 'adm_model_photo'), b('🗑️ Eliminar foto', 'adm_model_photo_delete')]);
     rows.push([b('✏️ Editar', 'adm_model_edit'), b('🗑️ Eliminar', 'adm_model_delete')]);
     rows.push([b('🔄 Reset votos', 'adm_model_reset')]);
-    rows.push([b('💾 Crear Backup', 'adm_models_backup', 'success'), b('📥 Importar Backup', 'adm_models_import', 'primary')]);
+    rows.push([b('💾 Crear Backup', 'adm_models_backup', 'success')]);
   }
   if (section === 'usuarios') {
     rows.push([b('📋 Lista', 'adm_user_list')]);
@@ -225,112 +225,6 @@ module.exports = bot => {
       } catch (error) {
         console.error('BACKUP MODELOS: error creando archivo:', error);
         return ctx.reply('❌ No pude crear el Backup: ' + escapeHtml(error.message || 'error'));
-      }
-    }
-
-    if (a === 'adm_models_import') {
-      setPending(ctx.from.id, 'backup_import_file');
-      return ctx.reply(
-        '📥 <b>IMPORTAR BACKUP DE MODELOS</b>\\n\\n' +
-        'Envía el archivo <code>.json</code> generado por la opción Crear Backup.\\n' +
-        'Primero revisaré su formato y te mostraré un resumen. No se importará nada hasta que confirmes.\\n\\n' +
-        '⚠️ La importación conserva los IDs originales y combina los registros existentes; no elimina modelos.\\n' +
-        '❌ /cancel para cancelar.',
-        { parse_mode: 'HTML' }
-      );
-    }
-
-    if (a === 'adm_backup_import_cancel') {
-      clearPending(ctx.from.id);
-      return ctx.editMessageText('❌ Importación cancelada. No se modificó ningún dato.');
-    }
-
-    if (a === 'adm_backup_import_confirm') {
-      const pending = getPending(ctx.from.id);
-      const backup = pending?.type === 'backup_import_confirm' ? pending.backup : null;
-      if (!backup) return ctx.reply('❌ El archivo pendiente expiró. Vuelve a seleccionar Importar Backup.');
-      try {
-        const result = await importModelsBackup(backup);
-        clearPending(ctx.from.id);
-        return ctx.editMessageText(
-          '✅ <b>BACKUP IMPORTADO</b>\\n\\n' +
-          '💃 Modelos: <b>' + result.importedModels + '</b>\\n' +
-          '🗳️ Votos: <b>' + result.importedVotes + '</b>\\n' +
-          '💬 Comentarios: <b>' + result.importedComments + '</b>\\n' +
-          '📸 Referencias de fotos: <b>' + result.importedMedia + '</b>\\n\\n' +
-          'Los registros se conservaron con sus IDs originales.',
-          { parse_mode: 'HTML' }
-        );
-      } catch (error) {
-        console.error('BACKUP MODELOS: error importando:', error);
-        clearPending(ctx.from.id);
-        return ctx.reply('❌ Falló la importación: ' + escapeHtml(error.message || 'error'));
-      }
-    }
-
-    if (a === 'adm_cache') {
-      return ctx.editMessageText(
-        '🧹 <b>LIMPIAR CACHÉ</b>\n\n' +
-        'Selecciona qué caché deseas limpiar.\n\n' +
-        '☁️ <b>Firebase</b>: caché local de configuración del bot.\n' +
-        '📦 <b>Telegram Store</b>: caché local del índice de almacenamiento y referencias de los 7 temas.\n\n' +
-        '⚠️ No elimina modelos, plantillas, fotos, mensajes ni datos reales. Solo fuerza una nueva lectura.',
-        { parse_mode: 'HTML', ...Markup.inlineKeyboard([
-          [b('☁️ Firebase', 'adm_cache_firebase', 'primary')],
-          [b('📦 Store grupo de temas', 'adm_cache_store', 'success')],
-          [b('🧹 Ambos', 'adm_cache_all', 'danger')],
-          [b('⬅️ Volver', 'adm_home')]
-        ]) }
-      );
-    }
-
-    if (a === 'adm_cache_firebase' || a === 'adm_cache_store' || a === 'adm_cache_all') {
-      const clearFirebase = a !== 'adm_cache_store';
-      const clearStore = a !== 'adm_cache_firebase';
-      if (clearFirebase) clearFirebaseCache();
-      if (clearStore) clearStorageCache();
-      const cleaned = [clearFirebase ? '☁️ Firebase' : '', clearStore ? '📦 Store grupo de temas' : ''].filter(Boolean).join(' + ');
-      return ctx.editMessageText(
-        '✅ <b>Caché limpiado</b>\n\n' + cleaned + '\n\n' +
-        '🔄 La próxima lectura volverá a consultar la fuente real.\n' +
-        '📌 No se borró ningún dato ni mensaje del Storage.',
-        { parse_mode: 'HTML', ...Markup.inlineKeyboard([[b('🧹 Limpiar otro', 'adm_cache')], [b('⬅️ Volver al panel', 'adm_home')]]) }
-      );
-    }
-    if (a === 'adm_tpl_save' || a === 'adm_tpl_cancel') {
-      const pendingTemplate = getPending(ctx.from.id);
-      const tpl = pendingTemplate?.type === 'template_confirm' ? pendingTemplate.template : null;
-      if (a === 'adm_tpl_cancel') {
-        clearAllPending(ctx.from.id);
-
-        return ctx.editMessageText('❌ Creación de plantilla cancelada. No se guardó ningún cambio.');
-      }
-      if (!tpl) return ctx.reply('❌ La vista previa expiró. Pulsa ➕ Crear nuevamente.');
-      try {
-        await savePlantilla(tpl.id, tpl);
-        let storageOk = false;
-        try {
-          await publishTextToStorage(
-            ctx.telegram, 'plantillas',
-            '📝 PLANTILLA GUARDADA\nID: ' + tpl.id + '\nNombre: ' + tpl.nombre +
-              '\nFormato: ' + tpl.formato + '\n\n' + tpl.texto,
-            { parse_mode: 'HTML' }
-          );
-          storageOk = true;
-        } catch (storageError) {
-          console.error('PLANTILLA: Storage:', storageError.message || storageError);
-        }
-        clearAllPending(ctx.from.id);
-        return ctx.editMessageText(
-          '✅ <b>Plantilla guardada correctamente</b>\n\n' +
-          '📛 Nombre: <b>' + escapeHtml(tpl.nombre) + '</b>\n' +
-          '🆔 <code>' + escapeHtml(tpl.id) + '</code>\n' +
-          '📦 Telegram Storage: ' + (storageOk ? '✅ publicada en 📝 PLANTILLAS' : '⚠️ no publicada'),
-          { parse_mode: 'HTML' }
-        );
-      } catch (e) {
-        console.error('PLANTILLA: error guardando:', e);
-        return ctx.reply('❌ No pude guardar la plantilla: ' + escapeHtml(e.message || 'error'), { parse_mode: 'HTML' });
       }
     }
 
@@ -604,44 +498,6 @@ module.exports = bot => {
         ? 'galeria'
         : null;
 
-    if (action === 'backup_import_file') {
-      const document = ctx.message.document;
-      if (!document) return ctx.reply('❌ Envía el Backup como documento JSON, no como fotografía.');
-      if (document.file_size && document.file_size > 20 * 1024 * 1024) {
-        return ctx.reply('❌ El archivo supera el límite de 20 MB para esta importación.');
-      }
-      try {
-        const fileUrl = await ctx.telegram.getFileLink(document.file_id);
-        const response = await fetch(fileUrl.href || String(fileUrl));
-        if (!response.ok) throw new Error('Telegram no permitió descargar el archivo.');
-        const raw = await response.text();
-        if (Buffer.byteLength(raw, 'utf8') > 20 * 1024 * 1024) throw new Error('El archivo supera el límite de 20 MB.');
-        const backup = validateBackup(JSON.parse(raw));
-        setPending(ctx.from.id, { type: 'backup_import_confirm', backup });
-        const votes = backup.models.reduce((n, model) => n + (model.votos || []).length, 0);
-        const comments = backup.models.reduce((n, model) => n + (model.comentarios || []).length, 0);
-        return ctx.reply(
-          '🔎 <b>BACKUP VALIDADO</b>\\n\\n' +
-          '💃 Modelos: <b>' + backup.models.length + '</b>\\n' +
-          '🗳️ Votos: <b>' + votes + '</b>\\n' +
-          '💬 Comentarios: <b>' + comments + '</b>\\n' +
-          '📸 Referencias de fotos: <b>' + Object.keys(backup.modelMedia || {}).length + '</b>\\n' +
-          '📅 Creado: <code>' + escapeHtml(backup.createdAt || 'Fecha no indicada') + '</code>\\n\\n' +
-          '¿Confirmas importar estos registros? Los datos existentes no se eliminarán.',
-          {
-            parse_mode: 'HTML',
-            ...Markup.inlineKeyboard([
-              [b('✅ Confirmar importación', 'adm_backup_import_confirm', 'success')],
-              [b('❌ Cancelar', 'adm_backup_import_cancel', 'danger')]
-            ])
-          }
-        );
-      } catch (error) {
-        console.error('BACKUP MODELOS: archivo inválido:', error);
-        clearPending(ctx.from.id);
-        return ctx.reply('❌ No pude leer el Backup: ' + escapeHtml(error.message || 'JSON inválido'));
-      }
-    }
 
     if (!key) return next();
 
