@@ -14,6 +14,7 @@ const { clearCache: clearFirebaseCache } = require('../cache');
 const { normalizeStyle, splitButtonKey, cleanCustomEmojiText } = require('../buttons');
 
 const { setPending, clearPending, getPending, clearAllPending } = require('../pending');
+const { exportModelsBackup, importModelsBackup, validateBackup } = require('../models-backup');
 
 function b(text, callback_data, style = 'primary') {
   return { text, callback_data, style };
@@ -79,6 +80,7 @@ function sectionKeyboard(section) {
     rows.push([b('📸 Foto', 'adm_model_photo'), b('🗑️ Eliminar foto', 'adm_model_photo_delete')]);
     rows.push([b('✏️ Editar', 'adm_model_edit'), b('🗑️ Eliminar', 'adm_model_delete')]);
     rows.push([b('🔄 Reset votos', 'adm_model_reset')]);
+    rows.push([b('💾 Crear Backup', 'adm_models_backup', 'success'), b('📥 Importar Backup', 'adm_models_import', 'primary')]);
   }
   if (section === 'usuarios') {
     rows.push([b('📋 Lista', 'adm_user_list')]);
@@ -199,6 +201,72 @@ module.exports = bot => {
     await ctx.answerCbQuery();
 
     if (a === 'adm_home') return showPanel(ctx, true);
+
+    if (a === 'adm_models_backup') {
+      try {
+        const backup = await exportModelsBackup();
+        const buffer = Buffer.from(JSON.stringify(backup, null, 2), 'utf8');
+        if (buffer.length > 45 * 1024 * 1024) {
+          return ctx.reply('⚠️ El Backup supera el límite seguro para enviarlo como un solo documento de Telegram. No se modificó ningún dato.');
+        }
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        return ctx.replyWithDocument(
+          { source: buffer, filename: 'verifiedmodels-backup-' + stamp + '.json' },
+          {
+            caption:
+              '💾 <b>BACKUP DE VERIFIEDMODELS</b>\\n\\n' +
+              '💃 Modelos: <b>' + backup.totalModels + '</b>\\n' +
+              '🗳️ Incluye votos y comentarios por modelo.\\n' +
+              '📸 Incluye referencias de fotografías guardadas en Telegram Storage.\\n\\n' +
+              '📦 Archivo portable para importar después de la migración a Serverless.',
+            parse_mode: 'HTML'
+          }
+        );
+      } catch (error) {
+        console.error('BACKUP MODELOS: error creando archivo:', error);
+        return ctx.reply('❌ No pude crear el Backup: ' + escapeHtml(error.message || 'error'));
+      }
+    }
+
+    if (a === 'adm_models_import') {
+      setPending(ctx.from.id, 'backup_import_file');
+      return ctx.reply(
+        '📥 <b>IMPORTAR BACKUP DE MODELOS</b>\\n\\n' +
+        'Envía el archivo <code>.json</code> generado por la opción Crear Backup.\\n' +
+        'Primero revisaré su formato y te mostraré un resumen. No se importará nada hasta que confirmes.\\n\\n' +
+        '⚠️ La importación conserva los IDs originales y combina los registros existentes; no elimina modelos.\\n' +
+        '❌ /cancel para cancelar.',
+        { parse_mode: 'HTML' }
+      );
+    }
+
+    if (a === 'adm_backup_import_cancel') {
+      clearPending(ctx.from.id);
+      return ctx.editMessageText('❌ Importación cancelada. No se modificó ningún dato.');
+    }
+
+    if (a === 'adm_backup_import_confirm') {
+      const pending = getPending(ctx.from.id);
+      const backup = pending?.type === 'backup_import_confirm' ? pending.backup : null;
+      if (!backup) return ctx.reply('❌ El archivo pendiente expiró. Vuelve a seleccionar Importar Backup.');
+      try {
+        const result = await importModelsBackup(backup);
+        clearPending(ctx.from.id);
+        return ctx.editMessageText(
+          '✅ <b>BACKUP IMPORTADO</b>\\n\\n' +
+          '💃 Modelos: <b>' + result.importedModels + '</b>\\n' +
+          '🗳️ Votos: <b>' + result.importedVotes + '</b>\\n' +
+          '💬 Comentarios: <b>' + result.importedComments + '</b>\\n' +
+          '📸 Referencias de fotos: <b>' + result.importedMedia + '</b>\\n\\n' +
+          'Los registros se conservaron con sus IDs originales.',
+          { parse_mode: 'HTML' }
+        );
+      } catch (error) {
+        console.error('BACKUP MODELOS: error importando:', error);
+        clearPending(ctx.from.id);
+        return ctx.reply('❌ Falló la importación: ' + escapeHtml(error.message || 'error'));
+      }
+    }
 
     if (a === 'adm_cache') {
       return ctx.editMessageText(
@@ -522,7 +590,8 @@ module.exports = bot => {
   bot.on(['photo', 'document'], async (ctx, next) => {
     if (!await isAdmin(ctx.from.id)) return;
 
-    const action = getPending(ctx.from.id);
+    const pendingUpload = getPending(ctx.from.id);
+    const action = typeof pendingUpload === 'string' ? pendingUpload : pendingUpload?.type;
     const caption = String(ctx.message.caption || '').trim();
 
     // Aceptamos los estados actuales y los nombres usados por la versión    // anterior para no romper configuraciones o flujos ya existentes.
@@ -534,6 +603,45 @@ module.exports = bot => {
       : galleryActions.has(action) || /^\/galeria(?:\s|$)/i.test(caption)
         ? 'galeria'
         : null;
+
+    if (action === 'backup_import_file') {
+      const document = ctx.message.document;
+      if (!document) return ctx.reply('❌ Envía el Backup como documento JSON, no como fotografía.');
+      if (document.file_size && document.file_size > 20 * 1024 * 1024) {
+        return ctx.reply('❌ El archivo supera el límite de 20 MB para esta importación.');
+      }
+      try {
+        const fileUrl = await ctx.telegram.getFileLink(document.file_id);
+        const response = await fetch(fileUrl.href || String(fileUrl));
+        if (!response.ok) throw new Error('Telegram no permitió descargar el archivo.');
+        const raw = await response.text();
+        if (Buffer.byteLength(raw, 'utf8') > 20 * 1024 * 1024) throw new Error('El archivo supera el límite de 20 MB.');
+        const backup = validateBackup(JSON.parse(raw));
+        setPending(ctx.from.id, { type: 'backup_import_confirm', backup });
+        const votes = backup.models.reduce((n, model) => n + (model.votos || []).length, 0);
+        const comments = backup.models.reduce((n, model) => n + (model.comentarios || []).length, 0);
+        return ctx.reply(
+          '🔎 <b>BACKUP VALIDADO</b>\\n\\n' +
+          '💃 Modelos: <b>' + backup.models.length + '</b>\\n' +
+          '🗳️ Votos: <b>' + votes + '</b>\\n' +
+          '💬 Comentarios: <b>' + comments + '</b>\\n' +
+          '📸 Referencias de fotos: <b>' + Object.keys(backup.modelMedia || {}).length + '</b>\\n' +
+          '📅 Creado: <code>' + escapeHtml(backup.createdAt || 'Fecha no indicada') + '</code>\\n\\n' +
+          '¿Confirmas importar estos registros? Los datos existentes no se eliminarán.',
+          {
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard([
+              [b('✅ Confirmar importación', 'adm_backup_import_confirm', 'success')],
+              [b('❌ Cancelar', 'adm_backup_import_cancel', 'danger')]
+            ])
+          }
+        );
+      } catch (error) {
+        console.error('BACKUP MODELOS: archivo inválido:', error);
+        clearPending(ctx.from.id);
+        return ctx.reply('❌ No pude leer el Backup: ' + escapeHtml(error.message || 'JSON inválido'));
+      }
+    }
 
     if (!key) return next();
 
