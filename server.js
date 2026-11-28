@@ -12,6 +12,21 @@ const PORT = Number(process.env.PORT) || 10000;
 
 app.use(express.json({ limit: '32kb' }));
 
+const WEBAPP_ORIGIN = 'https://galeria-verifiedmodels.pages.dev';
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin === WEBAPP_ORIGIN) {
+    res.setHeader('Access-Control-Allow-Origin', WEBAPP_ORIGIN);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  }
+  if (req.method === 'OPTIONS' && req.path === '/api/webapp/visit') {
+    return res.sendStatus(origin === WEBAPP_ORIGIN ? 204 : 403);
+  }
+  next();
+});
+
 function verifyTelegramWebAppInitData(initData) {
   if (typeof initData !== 'string' || !initData || !process.env.BOT_TOKEN) return null;
   const params = new URLSearchParams(initData);
