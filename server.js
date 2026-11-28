@@ -39,7 +39,7 @@ function verifyTelegramWebAppInitData(initData) {
     .filter(([key]) => key !== 'hash')
     .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
     .map(([key, value]) => key + '=' + value)
-    .join('\\n');
+    .join('\n');
   const secretKey = crypto.createHmac('sha256', 'WebAppData')
     .update(process.env.BOT_TOKEN)
     .digest();
@@ -92,7 +92,7 @@ app.post('/api/webapp/visit', async (req, res) => {
       '🕒 <b>Entrada:</b> ' + escapeHtml(enteredAt),
       '',
       '📍 <b>Sección:</b> Galería VerifiedModels'
-    ].join('\\n');
+    ].join('\n');
 
     await bot.telegram.sendMessage(topic.groupId, message, {
       message_thread_id: topic.threadId,
